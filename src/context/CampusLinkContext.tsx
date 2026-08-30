@@ -254,7 +254,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (session?.user) {
         const supabaseUser: User = {
           id: session.user.id,
-          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Organizer',
+          name: session.user.user_metadata?.full_name || (session.user.email ? session.user.email.split('@')[0] : 'Organizer'),
           email: session.user.email || '',
           committeeId: `comm_${session.user.id}`
         };
@@ -266,7 +266,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (session?.user) {
         const supabaseUser: User = {
           id: session.user.id,
-          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Organizer',
+          name: session.user.user_metadata?.full_name || (session.user.email ? session.user.email.split('@')[0] : 'Organizer'),
           email: session.user.email || '',
           committeeId: `comm_${session.user.id}`
         };
@@ -318,17 +318,56 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const activeCommittee = userCommittees[0] || (user ? {
     id: user.committeeId || `comm_${user.id}`,
     userId: user.id,
-    handle: user.email.split('@')[0].toLowerCase(),
-    name: `${user.name}'s Committee`,
+    handle: (user.email ? user.email.split('@')[0] : (user.id || 'org')).toLowerCase().replace(/[^a-z0-9]/g, ''),
+    name: `${user.name || 'Organizer'}'s Committee`,
     tagline: 'Student organization page',
     logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=300',
-    description: 'Official CampusLink page for ' + user.name,
+    description: 'Official CampusLink page for ' + (user.name || 'Organizer'),
     socials: {},
     verified: false,
     members: []
   } : DEFAULT_FALLBACK_COMMITTEE);
 
-  const activeEvent = userEvents.find(e => e.id === activeEventId) || userEvents[0] || (user ? null : DEFAULT_FALLBACK_EVENT);
+  const activeEvent = userEvents.find(e => e.id === activeEventId)
+    || userEvents[0]
+    || (user ? {
+        id: `evt_${user.id}_init`,
+        userId: user.id,
+        committeeId: activeCommittee.id,
+        slug: `${activeCommittee.handle || 'my-org'}-event`,
+        title: `${user.name || 'Organizer'}'s Launch Event`,
+        tagline: 'Welcome to our official campus event page!',
+        description: 'Customize event title, poster, venue, and resource links from your dashboard.',
+        posterUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000',
+        startDate: new Date(Date.now() + 86400000 * 7).toISOString(),
+        endDate: new Date(Date.now() + 86400000 * 9).toISOString(),
+        venue: 'Campus Main Auditorium',
+        address: 'University Campus Gate 1',
+        mapsUrl: 'https://maps.google.com',
+        primaryCtaText: 'Register Now',
+        primaryCtaUrl: 'https://forms.google.com',
+        organizerContact: { name: user.name || 'Organizer', email: user.email || '', phone: '' },
+        themeId: 'midnight',
+        customAccentColor: '#fafafa',
+        status: 'published',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        announcements: [],
+        links: [
+          {
+            id: `lnk_${Date.now()}_1`,
+            title: '🚀 Register Now — Free Entry',
+            url: 'https://forms.google.com',
+            icon: 'UserPlus',
+            description: 'Official registration desk',
+            type: 'registration',
+            featured: true,
+            visible: true,
+            sortOrder: 1,
+            clickCount: 0
+          }
+        ]
+      } : DEFAULT_FALLBACK_EVENT);
 
   const setActiveEventId = (id: string) => {
     if (userEvents.some(e => e.id === id)) {
@@ -348,7 +387,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
       const supabaseUser: User = {
         id: data.user.id,
-        name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Organizer',
+        name: data.user.user_metadata?.full_name || (data.user.email ? data.user.email.split('@')[0] : 'Organizer'),
         email: data.user.email || '',
         committeeId: `comm_${data.user.id}`
       };

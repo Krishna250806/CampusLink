@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCampusLink } from '../../context/CampusLinkContext';
-import { Eye, MousePointerClick, UserPlus, TrendingUp, Flame, QrCode, Share2, ExternalLink } from 'lucide-react';
+import { Eye, MousePointerClick, UserPlus, TrendingUp, Flame, QrCode, Share2, ExternalLink, Calendar, Plus } from 'lucide-react';
 
 export const OverviewTab: React.FC<{ onOpenQr: () => void; onOpenShare: () => void }> = ({
   onOpenQr,
@@ -9,6 +9,26 @@ export const OverviewTab: React.FC<{ onOpenQr: () => void; onOpenShare: () => vo
 }) => {
   const { activeEvent, activeCommittee, analytics } = useCampusLink();
   const navigate = useNavigate();
+
+  if (!activeEvent) {
+    return (
+      <div className="p-8 sm:p-12 bg-neutral-900 border border-white/10 rounded-3xl text-center space-y-4 shadow-2xl">
+        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-emerald-400">
+          <Calendar className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold font-heading text-white">Your Workspace is Ready!</h3>
+        <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+          You don't have any active events in your committee workspace yet. Create your first event to launch your microsite!
+        </p>
+        <button
+          onClick={() => navigate('/dashboard/builder')}
+          className="px-6 py-3 bg-zinc-100 hover:bg-zinc-200 text-neutral-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-lg inline-flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" /> Create New Event
+        </button>
+      </div>
+    );
+  }
 
   const conversionRate = analytics.totalViews > 0
     ? ((analytics.totalRegClicks / analytics.totalViews) * 100).toFixed(1)

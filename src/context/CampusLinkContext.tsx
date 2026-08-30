@@ -246,8 +246,6 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           committeeId: `comm_${session.user.id}`
         };
         setUser(supabaseUser);
-      } else if (!session && isSupabaseConfigured()) {
-        setUser(null);
       }
     });
 
@@ -305,7 +303,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     members: []
   } : DEFAULT_FALLBACK_COMMITTEE);
 
-  const activeEvent = userEvents.find(e => e.id === activeEventId) || userEvents[0] || DEFAULT_FALLBACK_EVENT;
+  const activeEvent = userEvents.find(e => e.id === activeEventId) || userEvents[0] || (user ? null : DEFAULT_FALLBACK_EVENT);
 
   const setActiveEventId = (id: string) => {
     if (userEvents.some(e => e.id === id)) {
@@ -479,9 +477,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return { success: true };
   };
 
-  // Event Methods (Strict Access Authorization Verification)
   const createEvent = (newEventData: Partial<Event>): Event => {
-    if (!user) {
+    const activeUser = user || (localStorage.getItem(STORAGE_KEY_USER) ? JSON.parse(localStorage.getItem(STORAGE_KEY_USER)!) : null);
+    if (!activeUser) {
       toast.error('Authentication required to create events.');
       throw new Error('Unauthenticated user action');
     }
@@ -493,7 +491,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const created: Event = {
       id: `evt_${Date.now()}`,
-      userId: user.id,
+      userId: activeUser.id,
       committeeId: activeCommittee.id,
       slug: slug || `event-${Date.now()}`,
       title: newEventData.title || 'Untitled Event',
@@ -538,10 +536,10 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setActiveEventIdState(created.id);
 
     // Sync to Supabase DB if configured
-    if (isSupabaseConfigured() && user) {
+    if (isSupabaseConfigured() && activeUser) {
       supabase.from('events').insert({
         id: created.id,
-        user_id: user.id,
+        user_id: activeUser.id,
         committee_id: created.committeeId,
         slug: created.slug,
         title: created.title,

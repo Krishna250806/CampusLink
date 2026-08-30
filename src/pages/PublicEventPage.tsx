@@ -101,10 +101,27 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     fetchSupabaseEvent();
   }, [targetSlug]);
 
-  // Match Event cleanly (prefers exact slug match, remote fetch, then default)
+  // Decode URL payload if present (for 100% instant zero-backend QR scanner accuracy)
+  const queryParams = new URLSearchParams(window.location.search);
+  const encodedData = queryParams.get('d');
+  let decodedEventFromUrl: Event | null = null;
+  if (encodedData) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(atob(encodedData)));
+      if (parsed && parsed.title) {
+        decodedEventFromUrl = {
+          ...DEFAULT_FALLBACK_EVENT,
+          ...parsed
+        };
+      }
+    } catch (e) {}
+  }
+
+  // Match Event cleanly (prefers exact slug match, remote fetch, decoded URL payload, then default)
   const event: Event = customEvent
     || (targetSlug ? events.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) : undefined)
     || remoteEvent
+    || decodedEventFromUrl
     || (targetSlug ? undefined : events[0])
     || DEFAULT_FALLBACK_EVENT;
 

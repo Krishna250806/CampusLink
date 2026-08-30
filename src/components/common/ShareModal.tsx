@@ -22,7 +22,29 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [showReportForm, setShowReportForm] = useState(false);
   const [reportReason, setReportReason] = useState('');
 
-  const publicUrl = `${window.location.origin}/events/${event.slug}`;
+  let encodedPayload = '';
+  try {
+    encodedPayload = btoa(encodeURIComponent(JSON.stringify({
+      id: event.id,
+      title: event.title,
+      tagline: event.tagline,
+      description: event.description,
+      posterUrl: event.posterUrl,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      venue: event.venue,
+      address: event.address,
+      mapsUrl: event.mapsUrl,
+      primaryCtaText: event.primaryCtaText,
+      primaryCtaUrl: event.primaryCtaUrl,
+      themeId: event.themeId,
+      customAccentColor: event.customAccentColor,
+      announcements: event.announcements || [],
+      links: event.links || []
+    })));
+  } catch (e) {}
+
+  const publicUrl = `${window.location.origin}/events/${event.slug}${encodedPayload ? `?d=${encodedPayload}` : ''}`;
   const whatsappText = encodeURIComponent(
     `Check out ${event.title} by ${committee.name}!\n"${event.tagline}"\n\nRegister & Details: ${publicUrl}`
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCampusLink } from '../context/CampusLinkContext';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { DynamicIcon } from '../components/common/DynamicIcon';
 import { QrModal } from '../components/common/QrModal';
 import { ShareModal } from '../components/common/ShareModal';
@@ -42,11 +43,69 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   const [selectedModalContent, setSelectedModalContent] = useState<'schedule' | 'rulebook' | null>(null);
 
   const targetSlug = (eventSlug || '').toLowerCase();
+  const [remoteEvent, setRemoteEvent] = useState<Event | null>(null);
 
-  // Match Event first from all events using slug or active event
+  // Live Supabase DB Sync for QR Code scanners & external visitors
+  useEffect(() => {
+    if (!targetSlug || !isSupabaseConfigured()) return;
+
+    const fetchSupabaseEvent = async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .or(`slug.eq.${targetSlug},id.eq.${targetSlug}`)
+        .maybeSingle();
+
+      if (data && !error) {
+        const fetched: Event = {
+          id: data.id,
+          userId: data.user_id,
+          committeeId: data.committee_id,
+          slug: data.slug,
+          title: data.title,
+          tagline: data.tagline || '',
+          description: data.description || '',
+          posterUrl: data.poster_url || '',
+          startDate: data.start_date,
+          endDate: data.end_date,
+          venue: data.venue || '',
+          address: data.address || '',
+          mapsUrl: data.maps_url || '',
+          primaryCtaText: data.primary_cta_text || 'Register Now',
+          primaryCtaUrl: data.primary_cta_url || '',
+          organizerContact: data.organizer_contact || {},
+          themeId: data.theme_id || 'midnight',
+          customAccentColor: data.custom_accent_color || '#fafafa',
+          status: data.status || 'published',
+          createdAt: data.created_at || new Date().toISOString(),
+          updatedAt: data.updated_at || new Date().toISOString(),
+          announcements: [],
+          links: [
+            {
+              id: `lnk_${data.id}_1`,
+              title: data.primary_cta_text || 'Register Now',
+              url: data.primary_cta_url || 'https://forms.google.com',
+              icon: 'UserPlus',
+              type: 'registration',
+              featured: true,
+              visible: true,
+              sortOrder: 1,
+              clickCount: 0
+            }
+          ]
+        };
+        setRemoteEvent(fetched);
+      }
+    };
+
+    fetchSupabaseEvent();
+  }, [targetSlug]);
+
+  // Match Event cleanly (prefers exact slug match, remote fetch, then default)
   const event: Event = customEvent
-    || (targetSlug ? events.find(e => e.slug?.toLowerCase() === targetSlug) : undefined)
-    || events[0]
+    || (targetSlug ? events.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) : undefined)
+    || remoteEvent
+    || (targetSlug ? undefined : events[0])
     || DEFAULT_FALLBACK_EVENT;
 
   // Match Committee based on resolved event or handle

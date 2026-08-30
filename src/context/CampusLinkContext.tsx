@@ -530,21 +530,80 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       ]
     };
 
-    setEvents(prev => [created, ...prev]);
+    setEvents(prev => [created, ...prev.filter(e => e.id !== created.id)]);
     setActiveEventIdState(created.id);
+
+    // Sync to Supabase DB if configured
+    if (isSupabaseConfigured() && user) {
+      supabase.from('events').insert({
+        id: created.id,
+        user_id: user.id,
+        committee_id: created.committeeId,
+        slug: created.slug,
+        title: created.title,
+        tagline: created.tagline,
+        description: created.description,
+        poster_url: created.posterUrl,
+        start_date: created.startDate,
+        end_date: created.endDate,
+        venue: created.venue,
+        address: created.address,
+        maps_url: created.mapsUrl,
+        primary_cta_text: created.primaryCtaText,
+        primary_cta_url: created.primaryCtaUrl,
+        organizer_contact: created.organizerContact,
+        theme_id: created.themeId,
+        custom_accent_color: created.customAccentColor,
+        status: created.status
+      }).then(({ error }) => {
+        if (error) console.error('Supabase create event error:', error);
+      });
+    }
+
     return created;
   };
 
   const updateEvent = (eventId: string, partial: Partial<Event>) => {
+    const target = events.find(e => e.id === eventId);
+    if (user && target && target.userId && target.userId !== user.id) {
+      toast.error('Unauthorized: You can only edit your own events.');
+      return;
+    }
+
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
       const list = exists ? prev : [{ ...DEFAULT_FALLBACK_EVENT, ...partial, id: eventId }, ...prev];
       return list.map(e => e.id === eventId ? { ...e, ...partial, updatedAt: new Date().toISOString() } : e);
     });
     setActiveEventIdState(eventId);
+
+    // Sync to Supabase DB if configured
+    if (isSupabaseConfigured() && user) {
+      const supabasePayload: any = {};
+      if (partial.title) supabasePayload.title = partial.title;
+      if (partial.tagline) supabasePayload.tagline = partial.tagline;
+      if (partial.description) supabasePayload.description = partial.description;
+      if (partial.posterUrl) supabasePayload.poster_url = partial.posterUrl;
+      if (partial.startDate) supabasePayload.start_date = partial.startDate;
+      if (partial.endDate) supabasePayload.end_date = partial.endDate;
+      if (partial.venue) supabasePayload.venue = partial.venue;
+      if (partial.primaryCtaText) supabasePayload.primary_cta_text = partial.primaryCtaText;
+      if (partial.primaryCtaUrl) supabasePayload.primary_cta_url = partial.primaryCtaUrl;
+      if (partial.themeId) supabasePayload.theme_id = partial.themeId;
+
+      supabase.from('events').update(supabasePayload).eq('id', eventId).eq('user_id', user.id).then(({ error }) => {
+        if (error) console.error('Supabase update event error:', error);
+      });
+    }
   };
 
   const deleteEvent = (eventId: string) => {
+    const target = events.find(e => e.id === eventId);
+    if (user && target && target.userId && target.userId !== user.id) {
+      toast.error('Unauthorized: You can only delete your own events.');
+      return;
+    }
+
     setEvents(prev => prev.filter(e => e.id !== eventId));
     if (activeEventId === eventId) {
       const remaining = events.filter(e => e.id !== eventId);
@@ -553,6 +612,12 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       } else {
         setActiveEventIdState('');
       }
+    }
+
+    if (isSupabaseConfigured() && user) {
+      supabase.from('events').delete().eq('id', eventId).eq('user_id', user.id).then(({ error }) => {
+        if (error) console.error('Supabase delete event error:', error);
+      });
     }
   };
 

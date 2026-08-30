@@ -1,0 +1,329 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-display: 'Outfit', sans-serif;
+    --font-serif: 'Playfair Display', Georgia, serif;
+    --font-mono: 'Space Grotesk', monospace;
+    --accent-color: #fafafa;
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #09090b;
+  color: #f4f4f5;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, .font-heading {
+  font-family: var(--font-display);
+}
+
+.font-serif-heading {
+  font-family: var(--font-serif);
+}
+
+.font-mono-heading {
+  font-family: var(--font-mono);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #09090b;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+  border: 2px solid #09090b;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Ambient Background Mesh Gradients - Monochromatic Obsidian Theme */
+.bg-mesh-dark {
+  background: 
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+    radial-gradient(circle at 15% 45%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 85% 85%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
+    #09090b;
+}
+
+.bg-mesh-glow {
+  background: 
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 5% 100%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 95% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: rgba(24, 24, 27, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-panel-elevated {
+  background: rgba(24, 24, 27, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.glass-card {
+  background: rgba(39, 39, 42, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card:hover {
+  background: rgba(39, 39, 42, 0.7);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.glow-border-indigo, .glow-border-violet {
+  position: relative;
+}
+.glow-border-indigo::before, .glow-border-violet::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.3));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Animations & Keyframes */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.35; filter: blur(24px); }
+  50% { opacity: 0.75; filter: blur(36px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 5s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: spinSlow 12s linear infinite;
+}
+
+.shimmer-badge {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+}
+
+/* Theme Classes for Public Page */
+/* 1. MIDNIGHT (Default Dark Premium) */
+.theme-midnight {
+  background-color: #09090b;
+  color: #f4f4f5;
+}
+.theme-midnight .theme-card {
+  background: rgba(24, 24, 27, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+}
+.theme-midnight .theme-card:hover {
+  background: rgba(39, 39, 42, 0.85);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+}
+
+/* 2. AURORA (Soft Dreamy Gradients) */
+.theme-aurora {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #31103f 100%);
+  color: #ffffff;
+}
+.theme-aurora .theme-card {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px);
+}
+.theme-aurora .theme-card:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 12px 36px rgba(236, 72, 153, 0.25);
+}
+
+/* 3. CYBER (Neon Cyberpunk) */
+.theme-cyber {
+  background-color: #080a0f;
+  color: #00f0ff;
+}
+.theme-cyber .theme-card {
+  background: rgba(13, 17, 23, 0.95);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  box-shadow: inset 0 0 12px rgba(0, 240, 255, 0.08);
+}
+.theme-cyber .theme-card:hover {
+  border-color: #00f0ff;
+  box-shadow: 0 0 24px rgba(0, 240, 255, 0.4), inset 0 0 15px rgba(0, 240, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+/* 4. EDITORIAL (Luxurious Ivory / Serif Minimal) */
+.theme-editorial {
+  background-color: #faf7f2;
+  color: #1c1917;
+}
+.theme-editorial h1, .theme-editorial h2, .theme-editorial h3 {
+  font-family: var(--font-serif);
+}
+.theme-editorial .theme-card {
+  background: #ffffff;
+  border: 1px solid #e7e5e4;
+  box-shadow: 0 4px 12px rgba(28, 25, 23, 0.05);
+  color: #1c1917;
+}
+.theme-editorial .theme-card:hover {
+  border-color: #78716c;
+  box-shadow: 0 12px 30px rgba(28, 25, 23, 0.1);
+}
+
+/* 5. FESTIVE (Energetic Party Pops) */
+.theme-festive {
+  background: linear-gradient(135deg, #2e1065 0%, #701a75 50%, #831843 100%);
+  color: #ffffff;
+}
+.theme-festive .theme-card {
+  background: rgba(255, 255, 255, 0.14);
+  border: 2px solid rgba(251, 191, 36, 0.45);
+  backdrop-filter: blur(14px);
+}
+.theme-festive .theme-card:hover {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: #fbbf24;
+  box-shadow: 0 12px 36px rgba(251, 191, 36, 0.35);
+}
+
+/* 6. MINIMAL (Clean Modern Neutral) */
+.theme-minimal {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+.theme-minimal .theme-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  color: #0f172a;
+}
+.theme-minimal .theme-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+}
+
+/* 7. POP BRUTALIST (Neo-Brutalist Vibrant Yellow & Offset Shadows) */
+.theme-popbrutalist {
+  background-color: #ffe600;
+  color: #000000;
+}
+.theme-popbrutalist .theme-card {
+  background: #ffffff;
+  color: #000000;
+  border: 3px solid #000000;
+  box-shadow: 5px 5px 0px 0px #000000;
+  border-radius: 14px;
+}
+.theme-popbrutalist .theme-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0px 0px #000000;
+}
+
+/* 8. CRIMSON MAROON (Luxury Dark Velvet Maroon & Gold) */
+.theme-crimson {
+  background-color: #1f0408;
+  color: #fff1f2;
+}
+.theme-crimson .theme-card {
+  background: rgba(43, 8, 12, 0.85);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  color: #fff1f2;
+}
+.theme-crimson .theme-card:hover {
+  border-color: rgba(244, 63, 94, 0.6);
+  box-shadow: 0 8px 30px rgba(136, 19, 55, 0.4);
+}
+
+/* 9. SCARLET ROSE (Energetic Light Crimson & Deep Red Accent) */
+.theme-scarlet {
+  background-color: #fff1f2;
+  color: #881337;
+}
+.theme-scarlet .theme-card {
+  background: #ffffff;
+  border: 1.5px solid #fecdd3;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.08);
+  color: #881337;
+}
+.theme-scarlet .theme-card:hover {
+  border-color: #f43f5e;
+  box-shadow: 0 8px 24px rgba(225, 29, 72, 0.18);
+}
+
+/* Phone Mockup Frame Customization */
+.phone-screen {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.phone-screen::-webkit-scrollbar {
+  display: none;
+}
+
+/* Print QR code styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #qr-print-area, #qr-print-area * {
+    visibility: visible;
+  }
+  #qr-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
+

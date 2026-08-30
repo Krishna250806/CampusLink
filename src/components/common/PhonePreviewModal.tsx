@@ -20,6 +20,9 @@ export const PhonePreviewModal: React.FC<PhonePreviewModalProps> = ({
   committee
 }) => {
   const [copied, setCopied] = React.useState(false);
+
+  if (!isOpen || !event) return null;
+
   const liveUrl = `${window.location.origin}/events/${event?.slug || ''}`;
 
   const handleCopy = () => {

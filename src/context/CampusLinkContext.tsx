@@ -303,7 +303,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     members: []
   } : DEFAULT_FALLBACK_COMMITTEE);
 
-  const activeEvent = userEvents.find(e => e.id === activeEventId) || userEvents[0] || (user ? null : DEFAULT_FALLBACK_EVENT);
+  const activeEvent = userEvents.find(e => e.id === activeEventId) || userEvents[0] || DEFAULT_FALLBACK_EVENT;
 
   const setActiveEventId = (id: string) => {
     if (userEvents.some(e => e.id === id)) {

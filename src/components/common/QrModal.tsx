@@ -22,8 +22,10 @@ export const QrModal: React.FC<QrModalProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [frameStyle, setFrameStyle] = useState<'minimal' | 'poster' | 'dark'>('poster');
 
+  if (!isOpen || !event) return null;
+
   // Clean, high-performance public URL for QR scanning & sharing
-  const publicUrl = `${window.location.origin}/events/${event.slug}`;
+  const publicUrl = `${window.location.origin}/events/${event.slug || ''}`;
 
   useEffect(() => {
     if (!isOpen || !event?.slug) return;

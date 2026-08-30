@@ -11,7 +11,7 @@ import {
   Calendar,
   MapPin,
   Clock,
-  Sparkles,
+  Rocket,
   QrCode,
   Share2,
   ExternalLink,
@@ -350,7 +350,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
               }}
             >
               <div className="absolute inset-0 bg-black/10 shimmer-badge pointer-events-none" />
-              <Sparkles className="w-5 h-5 text-amber-600 animate-pulse" />
+              <Rocket className="w-5 h-5 text-neutral-950" />
               <span className="text-neutral-950 font-black">{event.primaryCtaText || 'Register Now'}</span>
               <ChevronRight className="w-5 h-5 text-neutral-950 group-hover:translate-x-1 transition-transform" />
             </button>
@@ -464,7 +464,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
             to="/"
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-slate-400 hover:text-slate-200 transition-all"
           >
-            <Sparkles className="w-3 h-3 text-indigo-400" />
+            <Rocket className="w-3 h-3 text-indigo-400" />
             <span>Made with <strong>CampusLink</strong></span>
           </Link>
         </footer>

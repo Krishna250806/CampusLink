@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Heart } from 'lucide-react';
+import { GraduationCap, Heart } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
@@ -11,7 +11,7 @@ export const Footer: React.FC = () => {
           <div className="md:col-span-2 space-y-4">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
-                <Sparkles className="h-4 w-4" />
+                <GraduationCap className="h-4 w-4" />
               </div>
               <span className="font-bold text-lg text-white font-['Space_Grotesk']">CampusLink</span>
             </div>

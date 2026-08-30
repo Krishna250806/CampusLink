@@ -9,7 +9,7 @@ export const AuthPage: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'logi
   const { login, signup, loginWithGoogle } = useCampusLink();
   const [isLogin, setIsLogin] = useState(mode === 'login');
 
-  const handleSubmit = (data: {
+  const handleSubmit = async (data: {
     email: string;
     password?: string;
     name?: string;
@@ -17,7 +17,7 @@ export const AuthPage: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'logi
     handle?: string;
   }) => {
     if (isLogin) {
-      const res = login(data.email, data.password);
+      const res = await login(data.email, data.password);
       if (!res.success) {
         if (res.error === 'ACCOUNT_NOT_FOUND') {
           toast.error('Account not found! Please register your committee first.');

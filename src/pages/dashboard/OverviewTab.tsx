@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCampusLink } from '../../context/CampusLinkContext';
-import { Eye, MousePointerClick, UserPlus, TrendingUp, Sparkles, QrCode, Share2, ExternalLink } from 'lucide-react';
+import { Eye, MousePointerClick, UserPlus, TrendingUp, Flame, QrCode, Share2, ExternalLink } from 'lucide-react';
 
 export const OverviewTab: React.FC<{ onOpenQr: () => void; onOpenShare: () => void }> = ({
   onOpenQr,
@@ -109,7 +109,7 @@ export const OverviewTab: React.FC<{ onOpenQr: () => void; onOpenShare: () => vo
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Top Performing Link</span>
             <div className="w-8 h-8 rounded-xl bg-amber-600/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
+              <Flame className="w-4 h-4" />
             </div>
           </div>
           <p className="text-base font-bold text-white truncate">{analytics.topLinkTitle}</p>

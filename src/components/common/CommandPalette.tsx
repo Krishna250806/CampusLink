@@ -8,7 +8,7 @@ import {
   Palette,
   BarChart3,
   ExternalLink,
-  Sparkles,
+  Zap,
   Share2
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -109,7 +109,7 @@ export const CommandPalette: React.FC = () => {
 
           <div className="border-t border-white/10 px-4 py-2 bg-slate-950 flex items-center justify-between text-[11px] text-slate-400 font-mono">
             <span>Tip: Press <kbd className="bg-white/10 px-1.5 py-0.5 rounded text-white">⌘K</kbd> anywhere</span>
-            <span className="flex items-center gap-1 text-indigo-400"><Sparkles className="w-3 h-3" /> CampusLink Command Bar</span>
+            <span className="flex items-center gap-1 text-indigo-400"><Zap className="w-3 h-3" /> CampusLink Command Bar</span>
           </div>
         </Command>
       </div>

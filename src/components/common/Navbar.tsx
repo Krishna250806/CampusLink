@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Calendar, LayoutDashboard, LogIn, ArrowRight } from 'lucide-react';
+import { GraduationCap, Calendar, LayoutDashboard, LogIn, ArrowRight } from 'lucide-react';
 import type { UserSession } from '../../types/campuslink';
 
 interface NavbarProps {
@@ -20,7 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, session
           className="flex cursor-pointer items-center gap-3 group"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 text-neutral-950 shadow-md shadow-white/10 group-hover:scale-105 transition-transform border border-white/20">
-            <Sparkles className="h-5 w-5 fill-neutral-950 text-neutral-950 group-hover:rotate-12 transition-transform" />
+            <GraduationCap className="h-5 w-5 text-neutral-950 group-hover:rotate-12 transition-transform" />
           </div>
           <div>
             <div className="flex items-center gap-2">

@@ -21,7 +21,7 @@ interface CampusLinkContextType {
   isAuthenticated: boolean;
   
   // Auth Actions
-  login: (email: string, password?: string) => { success: boolean; error?: string };
+  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   signup: (name: string, email: string, committeeName: string, handle: string, password?: string) => { success: boolean; error?: string };
   loginWithGoogle: () => Promise<void>;
   logout: () => void;
@@ -314,18 +314,22 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Auth Methods with Strict Validation & Password Hashing
-  const login = (email: string, password?: string): { success: boolean; error?: string } => {
+  const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
 
     // If Supabase is configured, use Supabase Auth
     if (isSupabaseConfigured() && password) {
-      signInWithEmail(cleanEmail, password).then(({ error }) => {
-        if (error) {
-          toast.error(error.message);
-        } else {
-          toast.success('Successfully logged in!');
-        }
-      });
+      const { data, error } = await signInWithEmail(cleanEmail, password);
+      if (error || !data?.user) {
+        return { success: false, error: 'ACCOUNT_NOT_FOUND' };
+      }
+      const supabaseUser: User = {
+        id: data.user.id,
+        name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Organizer',
+        email: data.user.email || '',
+        committeeId: `comm_${data.user.id}`
+      };
+      setUser(supabaseUser);
       return { success: true };
     }
 
@@ -604,7 +608,13 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return;
     }
 
-    setEvents(prev => prev.filter(e => e.id !== eventId));
+    setEvents(prev => {
+      const updated = prev.filter(e => e.id !== eventId);
+      localStorage.setItem(getUserEventsKey(user?.id), JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      return updated;
+    });
+
     if (activeEventId === eventId) {
       const remaining = events.filter(e => e.id !== eventId);
       if (remaining.length > 0) {

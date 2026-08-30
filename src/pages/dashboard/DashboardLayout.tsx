@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useCampusLink } from '../../context/CampusLinkContext';
 import { OverviewTab } from './OverviewTab';
 import { EventsTab } from './EventsTab';
@@ -21,7 +21,7 @@ import {
   Users,
   Settings,
   Plus,
-  Sparkles,
+  GraduationCap,
   LogOut,
   ExternalLink,
   ShieldCheck,
@@ -48,12 +48,12 @@ export const DashboardLayout: React.FC = () => {
           
           {/* Brand Header */}
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-2xl bg-zinc-100 text-neutral-950 flex items-center justify-center shadow-lg shadow-white/10 group-hover:scale-105 transition-transform border border-white/20">
-                <Sparkles className="w-4.5 h-4.5 fill-neutral-950 text-neutral-950" />
+            <div className="flex items-center gap-2.5 group cursor-default">
+              <div className="w-9 h-9 rounded-2xl bg-zinc-100 text-neutral-950 flex items-center justify-center shadow-lg shadow-white/10 border border-white/20">
+                <GraduationCap className="w-4.5 h-4.5 text-neutral-950" />
               </div>
               <span className="text-lg font-black font-heading tracking-tight text-white">CampusLink</span>
-            </Link>
+            </div>
 
             <span className="px-2 py-0.5 text-[9px] font-mono font-bold bg-white/10 text-zinc-300 rounded-full border border-white/15">
               v2.0 PRO

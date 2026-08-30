@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Modal } from './Modal';
 import type { Event, Committee } from '../../types/campuslink';
-import { Download, Printer, Copy, Check, Sparkles } from 'lucide-react';
+import { Download, Printer, Copy, Check, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface QrModalProps {
@@ -122,7 +122,7 @@ export const QrModal: React.FC<QrModalProps> = ({
           </div>
 
           <p className="mt-4 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 opacity-90">
-            <Sparkles className="w-4 h-4 text-yellow-300 animate-pulse" /> Scan to Register & View Details
+            <QrCode className="w-4 h-4 text-cyan-300" /> Scan to Register & View Details
           </p>
 
           <p className="mt-1.5 text-[11px] font-mono opacity-70">

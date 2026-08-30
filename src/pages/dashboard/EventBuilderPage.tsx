@@ -5,7 +5,7 @@ import type { Event, ThemeId, EventLink } from '../../types/campuslink';
 import { PhoneMockup } from '../../components/phone/PhoneMockup';
 import { PublicEventPage } from '../PublicEventPage';
 import {
-  Sparkles,
+  Rocket,
   ChevronRight,
   ChevronLeft,
   Eye,
@@ -141,16 +141,23 @@ export const EventBuilderPage: React.FC = () => {
 
   // Publish Event Final Action
   const handlePublish = () => {
-    if (isEditing && (eventId || targetEvent?.id)) {
-      const idToUpdate = eventId || targetEvent.id;
-      updateEvent(idToUpdate, draft);
-      toast.success("Event updated successfully!");
-    } else {
-      createEvent(draft);
-      toast.success("Event published live to CampusLink!");
+    try {
+      if (isEditing && (eventId || targetEvent?.id)) {
+        const idToUpdate = eventId || targetEvent.id;
+        updateEvent(idToUpdate, draft);
+        toast.success("Event updated successfully!");
+      } else {
+        createEvent(draft);
+        toast.success("Event published live to CampusLink!");
+      }
+      confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } });
+      navigate('/dashboard');
+    } catch (err: any) {
+      if (err?.message?.includes('Unauthenticated') || err?.message?.includes('Authentication required')) {
+        toast.error("Please sign up or log in to publish your event!");
+        navigate('/login');
+      }
     }
-    confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } });
-    navigate('/dashboard');
   };
 
   return (
@@ -191,7 +198,7 @@ export const EventBuilderPage: React.FC = () => {
           onClick={handlePublish}
           className="hidden sm:flex items-center gap-2 px-6 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-neutral-950 font-bold text-xs rounded-xl shadow-[inset_0_2px_0_0_rgba(255,255,255,1)] transition-all active:scale-95 cursor-pointer"
         >
-          <Sparkles className="w-4 h-4 text-amber-600 animate-pulse" /> {isEditing ? 'Save Changes' : 'Publish Event'}
+          <Rocket className="w-4 h-4 text-emerald-500" /> {isEditing ? 'Save Changes' : 'Publish Event'}
         </button>
       </header>
 
@@ -545,7 +552,7 @@ export const EventBuilderPage: React.FC = () => {
             {currentStep === 5 && (
               <div className="glass-panel-elevated p-8 rounded-3xl space-y-6 text-center shadow-2xl py-8">
                 <div className="w-16 h-16 rounded-3xl bg-neutral-900 border border-white/20 text-white flex items-center justify-center mx-auto shadow-xl">
-                  <Sparkles className="w-8 h-8 animate-pulse text-amber-400" />
+                  <Rocket className="w-8 h-8 text-emerald-400" />
                 </div>
 
                 <div className="space-y-2">
@@ -559,7 +566,7 @@ export const EventBuilderPage: React.FC = () => {
                   onClick={handlePublish}
                   className="w-full py-4 bg-zinc-100 hover:bg-zinc-200 text-neutral-950 font-bold text-sm rounded-2xl shadow-[inset_0_2px_0_0_rgba(255,255,255,1)] transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Sparkles className="w-5 h-5 text-amber-600 animate-pulse" />
+                  <Rocket className="w-5 h-5 text-emerald-600" />
                   <span>{isEditing ? 'Save Fest Microsite Changes' : 'Publish Fest Microsite Live'}</span>
                 </button>
               </div>

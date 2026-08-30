@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../../lib/utils';
-import { Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { GraduationCap, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface NeuralAccessLoginProps {
@@ -372,7 +372,7 @@ export const NeuralAccessLogin: React.FC<NeuralAccessLoginProps> = ({
       <main className="auth-container">
         <header className="header">
           <Link to="/" className="brand-id hover:text-white transition-colors">
-            <Sparkles className="w-4 h-4 text-white" />
+            <GraduationCap className="w-4 h-4 text-white" />
             <span>CAMPUSLINK PLATFORM</span>
           </Link>
           <h1>{isLogin ? 'CampusLink\nLogin' : 'CampusLink\nSignup'}</h1>

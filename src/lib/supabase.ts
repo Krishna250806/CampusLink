@@ -42,10 +42,11 @@ export const signInWithEmail = async (email: string, password: string) => {
 };
 
 export const signInWithGoogle = async () => {
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/dashboard`,
+      redirectTo: `${currentOrigin}/dashboard`,
     },
   });
   return { data, error };

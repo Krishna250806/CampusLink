@@ -11,6 +11,7 @@ import { TeamTab } from './TeamTab';
 import { SettingsTab } from './SettingsTab';
 import { QrModal } from '../../components/common/QrModal';
 import { ShareModal } from '../../components/common/ShareModal';
+import { PhonePreviewModal } from '../../components/common/PhonePreviewModal';
 import {
   LayoutDashboard,
   Calendar,
@@ -35,6 +36,7 @@ export const DashboardLayout: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'links' | 'appearance' | 'announcements' | 'analytics' | 'team' | 'settings'>('overview');
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isPhonePreviewOpen, setIsPhonePreviewOpen] = useState(false);
   const [showEventDropdown, setShowEventDropdown] = useState(false);
 
   const committeeEvents = events.filter(e => e.committeeId === activeCommittee.id);
@@ -185,19 +187,23 @@ export const DashboardLayout: React.FC = () => {
               <Plus className="w-4 h-4 text-neutral-950" /> Build New Event
             </button>
 
-            <a
-              href={`/events/${activeEvent.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2.5 glass-panel hover:bg-white/10 text-white border border-white/15 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
+            <button
+              onClick={() => setIsPhonePreviewOpen(true)}
+              className="px-4 py-2.5 glass-panel hover:bg-white/10 text-white border border-white/15 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <ExternalLink className="w-4 h-4" /> View Public Page
-            </a>
+            </button>
           </div>
         </div>
 
         {/* Tab Router Render */}
-        {activeTab === 'overview' && <OverviewTab onOpenQr={() => setIsQrOpen(true)} onOpenShare={() => setIsShareOpen(true)} />}
+        {activeTab === 'overview' && (
+          <OverviewTab
+            onOpenQr={() => setIsQrOpen(true)}
+            onOpenShare={() => setIsShareOpen(true)}
+            onOpenPhonePreview={() => setIsPhonePreviewOpen(true)}
+          />
+        )}
         {activeTab === 'events' && <EventsTab />}
         {activeTab === 'links' && <LinksTab />}
         {activeTab === 'appearance' && <AppearanceTab />}
@@ -208,9 +214,10 @@ export const DashboardLayout: React.FC = () => {
 
       </main>
 
-      {/* QR Code & Share Modals */}
+      {/* QR Code, Share & Phone Preview Modals */}
       <QrModal isOpen={isQrOpen} onClose={() => setIsQrOpen(false)} event={activeEvent} committee={activeCommittee} />
       <ShareModal isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} event={activeEvent} committee={activeCommittee} />
+      <PhonePreviewModal isOpen={isPhonePreviewOpen} onClose={() => setIsPhonePreviewOpen(false)} event={activeEvent} committee={activeCommittee} />
 
     </div>
   );

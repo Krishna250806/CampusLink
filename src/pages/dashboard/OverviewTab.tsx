@@ -3,9 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useCampusLink } from '../../context/CampusLinkContext';
 import { Eye, MousePointerClick, UserPlus, TrendingUp, Flame, QrCode, Share2, ExternalLink, Calendar, Plus } from 'lucide-react';
 
-export const OverviewTab: React.FC<{ onOpenQr: () => void; onOpenShare: () => void }> = ({
+export const OverviewTab: React.FC<{
+  onOpenQr: () => void;
+  onOpenShare: () => void;
+  onOpenPhonePreview: () => void;
+}> = ({
   onOpenQr,
-  onOpenShare
+  onOpenShare,
+  onOpenPhonePreview
 }) => {
   const { activeEvent, activeCommittee, analytics } = useCampusLink();
   const navigate = useNavigate();
@@ -73,14 +78,12 @@ export const OverviewTab: React.FC<{ onOpenQr: () => void; onOpenShare: () => vo
             <Share2 className="w-4 h-4 text-white" /> Share
           </button>
 
-          <a
-            href={`/@${activeCommittee.handle}/${activeEvent.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2.5 glass-panel hover:bg-white/10 text-white border border-white/15 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all"
+          <button
+            onClick={onOpenPhonePreview}
+            className="p-2.5 glass-panel hover:bg-white/10 text-white border border-white/15 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
           >
             <ExternalLink className="w-4 h-4 text-white" /> View Live Page
-          </a>
+          </button>
         </div>
       </div>
 

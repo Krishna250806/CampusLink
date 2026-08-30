@@ -32,7 +32,11 @@ export const EventsTab: React.FC = () => {
           return (
             <div
               key={evt.id}
-              className={`p-5 rounded-3xl border transition-all ${
+              onClick={() => {
+                setActiveEventId(evt.id);
+                navigate(`/dashboard/builder/${evt.id}`);
+              }}
+              className={`p-5 rounded-3xl border transition-all cursor-pointer hover:border-white/30 ${
                 isActive
                   ? 'bg-neutral-900 border-white/20 ring-1 ring-white/20 shadow-xl'
                   : 'bg-neutral-900/60 border-white/10 hover:border-white/20'
@@ -56,7 +60,7 @@ export const EventsTab: React.FC = () => {
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-bold font-heading text-slate-100 truncate">{evt.title}</h3>
+                  <h3 className="text-lg font-bold font-heading text-slate-100 truncate group-hover:text-emerald-400 transition-colors">{evt.title}</h3>
                   <p className="text-xs text-slate-400 truncate">{evt.tagline}</p>
 
                   <div className="text-[11px] text-slate-400 flex items-center gap-1">
@@ -67,10 +71,13 @@ export const EventsTab: React.FC = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+              <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between gap-2" onClick={e => e.stopPropagation()}>
                 {!isActive && (
                   <button
-                    onClick={() => setActiveEventId(evt.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveEventId(evt.id);
+                    }}
                     className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-xs font-semibold text-slate-300 rounded-xl transition-all cursor-pointer"
                   >
                     Set as Active Event
@@ -84,9 +91,10 @@ export const EventsTab: React.FC = () => {
 
                 <div className="flex items-center gap-1">
                   <a
-                    href={`/@${activeCommittee.handle}/${evt.slug}`}
+                    href={`/events/${evt.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
                     className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-neutral-800"
                     title="View Live Event"
                   >
@@ -94,15 +102,19 @@ export const EventsTab: React.FC = () => {
                   </a>
 
                   <button
-                    onClick={() => navigate(`/dashboard/builder/${evt.id}`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/dashboard/builder/${evt.id}`);
+                    }}
                     className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-neutral-800 cursor-pointer"
-                    title="Edit Event"
+                    title="Edit Event Builder"
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
 
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (confirm(`Are you sure you want to delete ${evt.title}?`)) {
                         deleteEvent(evt.id);
                       }

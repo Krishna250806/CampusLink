@@ -241,11 +241,11 @@ export function CinematicHero({
     const isMobile = window.innerWidth < 768;
 
     const ctx = gsap.context(() => {
-      gsap.set(".text-track", { autoAlpha: 1, y: 0, scale: 1, filter: "blur(0px)", rotationX: 0 });
-      gsap.set(".text-days", { autoAlpha: 1, clipPath: "inset(0 0% 0 0)" });
-      gsap.set(".main-card", { y: 0, autoAlpha: 1 });
-      gsap.set([".card-left-text", ".card-right-text", ".mockup-scroll-wrapper", ".floating-badge", ".phone-widget"], { autoAlpha: 1 });
-      gsap.set(".cta-wrapper", { autoAlpha: 1, scale: 1, filter: "blur(0px)" });
+      gsap.set(".text-track", { autoAlpha: 0, y: 60, scale: 0.85, filter: "blur(20px)", rotationX: -20 });
+      gsap.set(".text-days", { autoAlpha: 1, clipPath: "inset(0 100% 0 0)" });
+      gsap.set(".main-card", { y: window.innerHeight + 200, autoAlpha: 1 });
+      gsap.set([".card-left-text", ".card-right-text", ".mockup-scroll-wrapper", ".floating-badge", ".phone-widget"], { autoAlpha: 0 });
+      gsap.set(".cta-wrapper", { autoAlpha: 0, scale: 0.8, filter: "blur(30px)" });
 
       const introTl = gsap.timeline({ delay: 0.3 });
       introTl
@@ -311,44 +311,48 @@ export function CinematicHero({
       <div className="film-grain" aria-hidden="true" />
       <div className="bg-grid-theme absolute inset-0 z-0 pointer-events-none opacity-40" aria-hidden="true" />
 
-      {/* FOREGROUND LAYER 1: Starting Hero Texts & Action Buttons (Z-30 Top Layer) */}
-      <div className="hero-text-wrapper absolute top-6 sm:top-10 lg:top-12 z-30 flex flex-col items-center justify-center text-center w-full px-4 pointer-events-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/12 text-amber-300 text-xs font-semibold mb-2 shadow-lg backdrop-blur-md">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-          <span>The All-In-One Campus Fest Platform</span>
-        </div>
-        <h1 className="text-track text-3d-matte text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white drop-shadow-2xl">
+      {/* BACKGROUND LAYER: Hero Texts */}
+      <div className="hero-text-wrapper absolute z-10 flex flex-col items-center justify-center text-center w-screen px-4 will-change-transform transform-style-3d">
+        <h1 className="text-track gsap-reveal text-3d-matte text-5xl md:text-7xl lg:text-[6rem] font-bold tracking-tight mb-2">
           {tagline1}
         </h1>
-        <h1 className="text-days text-silver-matte text-3xl sm:text-5xl lg:text-6xl font-black tracking-tighter mt-0.5 drop-shadow-2xl">
+        <h1 className="text-days gsap-reveal text-silver-matte text-5xl md:text-7xl lg:text-[6rem] font-extrabold tracking-tighter">
           {tagline2}
         </h1>
+      </div>
 
-        {/* Action CTA Buttons */}
-        <div className="flex flex-wrap items-center justify-center gap-3.5 mt-4">
+      {/* BACKGROUND LAYER 2: CREATE EVENT CTA BUTTONS (Replaces App Store / Play Store) */}
+      <div className="cta-wrapper absolute z-10 flex flex-col items-center justify-center text-center w-screen px-4 gsap-reveal pointer-events-auto will-change-transform">
+        <h2 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight text-silver-matte">
+          {ctaHeading}
+        </h2>
+        <p className="text-muted-foreground text-lg md:text-xl mb-10 max-w-xl mx-auto font-light leading-relaxed">
+          {ctaDescription}
+        </p>
+        <div className="flex flex-col sm:flex-row gap-5 items-center justify-center">
           <button
             onClick={() => navigate('/dashboard')}
-            className="btn-modern-light flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl group font-bold text-xs cursor-pointer shadow-xl"
+            className="btn-modern-light flex items-center justify-center gap-3 px-8 py-4 rounded-[1.25rem] group font-bold text-sm cursor-pointer shadow-xl"
           >
-            <Sparkles className="w-4 h-4 text-amber-500" />
+            <Sparkles className="w-5 h-5 text-amber-500 animate-pulse" />
             <span>Create Your Event — Free</span>
           </button>
 
           <button
             onClick={() => navigate('/login')}
-            className="btn-modern-dark flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl group font-bold text-xs cursor-pointer border border-white/10"
+            className="btn-modern-dark flex items-center justify-center gap-3 px-8 py-4 rounded-[1.25rem] group font-bold text-sm cursor-pointer border border-white/10"
           >
             <span>Sign In to Dashboard</span>
-            <ArrowRight className="w-3.5 h-3.5 text-zinc-300" />
+            <ArrowRight className="w-4 h-4 text-zinc-300" />
           </button>
         </div>
       </div>
 
       {/* FOREGROUND LAYER: The Physical Blackish Obsidian Depth Card */}
-      <div className="absolute inset-0 z-20 flex items-end lg:items-center justify-center pointer-events-none pt-44 lg:pt-28 pb-4" style={{ perspective: "1500px" }}>
+      <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none" style={{ perspective: "1500px" }}>
         <div
           ref={mainCardRef}
-          className="main-card premium-depth-card relative overflow-hidden gsap-reveal flex items-center justify-center pointer-events-auto w-[94vw] md:w-[85vw] h-[68vh] md:h-[70vh] rounded-[32px] md:rounded-[40px]"
+          className="main-card premium-depth-card relative overflow-hidden gsap-reveal flex items-center justify-center pointer-events-auto w-[92vw] md:w-[85vw] h-[92vh] md:h-[85vh] rounded-[32px] md:rounded-[40px]"
         >
           <div className="card-sheen" aria-hidden="true" />
 

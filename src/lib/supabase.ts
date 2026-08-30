@@ -42,11 +42,16 @@ export const signInWithEmail = async (email: string, password: string) => {
 };
 
 export const signInWithGoogle = async () => {
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
+  let currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://campuslink-lyart.vercel.app';
+  if (!currentOrigin.startsWith('http://') && !currentOrigin.startsWith('https://')) {
+    currentOrigin = `https://${currentOrigin}`;
+  }
+  const redirectTo = `${currentOrigin}/dashboard`;
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${currentOrigin}/dashboard`,
+      redirectTo,
     },
   });
   return { data, error };

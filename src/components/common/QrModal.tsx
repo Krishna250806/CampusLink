@@ -22,32 +22,11 @@ export const QrModal: React.FC<QrModalProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [frameStyle, setFrameStyle] = useState<'minimal' | 'poster' | 'dark'>('poster');
 
-  let encodedPayload = '';
-  try {
-    encodedPayload = btoa(encodeURIComponent(JSON.stringify({
-      id: event.id,
-      title: event.title,
-      tagline: event.tagline,
-      description: event.description,
-      posterUrl: event.posterUrl,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      venue: event.venue,
-      address: event.address,
-      mapsUrl: event.mapsUrl,
-      primaryCtaText: event.primaryCtaText,
-      primaryCtaUrl: event.primaryCtaUrl,
-      themeId: event.themeId,
-      customAccentColor: event.customAccentColor,
-      announcements: event.announcements || [],
-      links: event.links || []
-    })));
-  } catch (e) {}
-
-  const publicUrl = `${window.location.origin}/events/${event.slug}${encodedPayload ? `?d=${encodedPayload}` : ''}`;
+  // Clean, high-performance public URL for QR scanning & sharing
+  const publicUrl = `${window.location.origin}/events/${event.slug}`;
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !event?.slug) return;
 
     QRCode.toDataURL(publicUrl, {
       width: 400,
@@ -56,15 +35,15 @@ export const QrModal: React.FC<QrModalProps> = ({
         dark: frameStyle === 'dark' ? '#00f0ff' : '#0f172a',
         light: frameStyle === 'dark' ? '#090d16' : '#ffffff'
       },
-      errorCorrectionLevel: 'H'
+      errorCorrectionLevel: 'M'
     })
       .then(url => {
         setDataUrl(url);
       })
       .catch(err => {
-        console.error('QR code generation failed:', err);
+        console.error('QR code generation error:', err);
       });
-  }, [isOpen, publicUrl, frameStyle]);
+  }, [isOpen, publicUrl, frameStyle, event?.slug]);
 
   const handleDownloadPng = () => {
     if (!dataUrl) return;

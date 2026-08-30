@@ -537,7 +537,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // Sync to Supabase DB if configured
     if (isSupabaseConfigured() && activeUser) {
-      supabase.from('events').insert({
+      supabase.from('events').upsert({
         id: created.id,
         user_id: activeUser.id,
         committee_id: created.committeeId,
@@ -557,7 +557,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         theme_id: created.themeId,
         custom_accent_color: created.customAccentColor,
         status: created.status
-      }).then(({ error }) => {
+      }, { onConflict: 'id' }).then(({ error }) => {
         if (error) console.error('Supabase create event error:', error);
       });
     }

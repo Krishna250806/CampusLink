@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCampusLink } from '../../context/CampusLinkContext';
+import { toast } from 'sonner';
 import { OverviewTab } from './OverviewTab';
 import { EventsTab } from './EventsTab';
 import { LinksTab } from './LinksTab';
@@ -38,6 +39,15 @@ export const DashboardLayout: React.FC = () => {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isPhonePreviewOpen, setIsPhonePreviewOpen] = useState(false);
   const [showEventDropdown, setShowEventDropdown] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const errorDesc = params.get('error_description');
+    if (errorDesc) {
+      toast.error(errorDesc.includes('OAuth state') ? 'Google login session expired. Please click Google Login again.' : errorDesc);
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
 
   const committeeEvents = events.filter(e => e.committeeId === activeCommittee.id);
 

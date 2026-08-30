@@ -16,6 +16,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    flowType: 'implicit',
   },
 });
 
@@ -52,6 +53,10 @@ export const signInWithGoogle = async () => {
     provider: 'google',
     options: {
       redirectTo,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent',
+      },
     },
   });
   return { data, error };

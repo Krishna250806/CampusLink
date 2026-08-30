@@ -68,18 +68,43 @@ const STORAGE_KEY_GLOBAL_COMMITTEES = 'campuslink_clean_v6_global_committees';
 const getUserCommitteesKey = (userId?: string) => `campuslink_v6_comm_${userId || 'default'}`;
 const getUserEventsKey = (userId?: string) => `campuslink_v6_evt_${userId || 'default'}`;
 
+// Safe LocalStorage Set Utility to prevent QuotaExceededError crashes
+const safeLocalStorageSet = (key: string, value: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, value);
+  } catch (e: any) {
+    console.warn(`LocalStorage quota limit reached for key "${key}". Auto-cleaning old caches...`);
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k !== key && (k.startsWith('campuslink_v') || k.startsWith('campuslink_clean_v1') || k.startsWith('campuslink_clean_v2') || k.startsWith('campuslink_clean_v3') || k.startsWith('campuslink_clean_v4') || k.startsWith('campuslink_clean_v5'))) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem(key, value);
+    } catch {
+      // In-memory fallback if browser storage is completely filled
+    }
+  }
+};
+
 // Clear legacy storage cache keys once
 if (typeof window !== 'undefined') {
   ['v1', 'v2', 'v3', 'v4', 'v5'].forEach(ver => {
-    localStorage.removeItem(`campuslink_user_${ver}`);
-    localStorage.removeItem(`campuslink_committees_${ver}`);
-    localStorage.removeItem(`campuslink_events_${ver}`);
-    localStorage.removeItem(`campuslink_analytics_${ver}`);
-    localStorage.removeItem(`campuslink_clean_user_${ver}`);
-    localStorage.removeItem(`campuslink_clean_committees_${ver}`);
-    localStorage.removeItem(`campuslink_clean_events_${ver}`);
-    localStorage.removeItem(`campuslink_clean_analytics_${ver}`);
-    localStorage.removeItem(`campuslink_clean_active_evt_${ver}`);
+    try {
+      localStorage.removeItem(`campuslink_user_${ver}`);
+      localStorage.removeItem(`campuslink_committees_${ver}`);
+      localStorage.removeItem(`campuslink_events_${ver}`);
+      localStorage.removeItem(`campuslink_analytics_${ver}`);
+      localStorage.removeItem(`campuslink_clean_user_${ver}`);
+      localStorage.removeItem(`campuslink_clean_committees_${ver}`);
+      localStorage.removeItem(`campuslink_clean_events_${ver}`);
+      localStorage.removeItem(`campuslink_clean_analytics_${ver}`);
+      localStorage.removeItem(`campuslink_clean_active_evt_${ver}`);
+    } catch (e) {}
   });
 }
 
@@ -252,33 +277,33 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return () => subscription.unsubscribe();
   }, []);
 
-  // Save changes to LocalStorage
+  // Save changes to LocalStorage safely
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+    safeLocalStorageSet(STORAGE_KEY_USER, JSON.stringify(user));
   }, [user]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_REGISTERED_USERS, JSON.stringify(registeredAccounts));
+    safeLocalStorageSet(STORAGE_KEY_REGISTERED_USERS, JSON.stringify(registeredAccounts));
   }, [registeredAccounts]);
 
   useEffect(() => {
-    localStorage.setItem(getUserCommitteesKey(user?.id), JSON.stringify(committees));
-    localStorage.setItem(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(committees));
+    safeLocalStorageSet(getUserCommitteesKey(user?.id), JSON.stringify(committees));
+    safeLocalStorageSet(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(committees));
   }, [committees, user?.id]);
 
   useEffect(() => {
-    localStorage.setItem(getUserEventsKey(user?.id), JSON.stringify(events));
+    safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(events));
     if (events && events.length > 0) {
-      localStorage.setItem(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(events));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(events));
     }
   }, [events, user?.id]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_ANALYTICS, JSON.stringify(analytics));
+    safeLocalStorageSet(STORAGE_KEY_ANALYTICS, JSON.stringify(analytics));
   }, [analytics]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_ACTIVE_EVT, activeEventId);
+    safeLocalStorageSet(STORAGE_KEY_ACTIVE_EVT, activeEventId);
   }, [activeEventId]);
 
   // Derived User-Scoped Workspace Data (STRICT DATA ISOLATION)
@@ -534,8 +559,8 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setEvents(prev => {
       const updated = [created, ...prev.filter(e => e.id !== created.id)];
-      localStorage.setItem(getUserEventsKey(activeUser.id), JSON.stringify(updated));
-      localStorage.setItem(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      safeLocalStorageSet(getUserEventsKey(activeUser.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
       return updated;
     });
     setActiveEventIdState(created.id);
@@ -587,8 +612,8 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         links: Array.isArray(partial.links) ? partial.links : (e.links || []),
         updatedAt: new Date().toISOString()
       } : e);
-      localStorage.setItem(getUserEventsKey(user?.id), JSON.stringify(updated));
-      localStorage.setItem(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
       return updated;
     });
     setActiveEventIdState(eventId);
@@ -622,8 +647,8 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setEvents(prev => {
       const updated = prev.filter(e => e.id !== eventId);
-      localStorage.setItem(getUserEventsKey(user?.id), JSON.stringify(updated));
-      localStorage.setItem(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
       return updated;
     });
 

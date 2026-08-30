@@ -5,7 +5,16 @@ import { Eye, MousePointerClick, UserPlus, ShieldCheck, TrendingUp } from 'lucid
 export const AnalyticsTab: React.FC = () => {
   const { activeEvent, analytics } = useCampusLink();
 
-  const sortedLinks = [...activeEvent.links].sort(
+  if (!activeEvent) {
+    return (
+      <div className="p-8 sm:p-12 bg-neutral-900 border border-white/10 rounded-3xl text-center space-y-3 shadow-xl">
+        <h3 className="text-lg font-bold font-heading text-white">No Active Event</h3>
+        <p className="text-xs text-zinc-400">Build an event first to view visitor analytics and click rates.</p>
+      </div>
+    );
+  }
+
+  const sortedLinks = [...(activeEvent.links || [])].sort(
     (a, b) => (analytics.linkClicksById[b.id] || 0) - (analytics.linkClicksById[a.id] || 0)
   );
 

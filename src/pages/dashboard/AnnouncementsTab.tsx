@@ -9,6 +9,15 @@ export const AnnouncementsTab: React.FC = () => {
   const [description, setDescription] = useState('');
   const [url, setUrl] = useState('');
 
+  if (!activeEvent) {
+    return (
+      <div className="p-8 sm:p-12 bg-neutral-900 border border-white/10 rounded-3xl text-center space-y-3 shadow-xl">
+        <h3 className="text-lg font-bold font-heading text-white">No Active Event</h3>
+        <p className="text-xs text-zinc-400">Build an event first to post announcement updates.</p>
+      </div>
+    );
+  }
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !description) return;

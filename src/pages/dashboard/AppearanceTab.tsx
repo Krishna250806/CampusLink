@@ -22,6 +22,15 @@ const THEMES: { id: ThemeId; name: string; tag: string; bgStyle: string }[] = [
 export const AppearanceTab: React.FC = () => {
   const { activeEvent, activeCommittee, updateEvent } = useCampusLink();
 
+  if (!activeEvent) {
+    return (
+      <div className="p-8 sm:p-12 bg-neutral-900 border border-white/10 rounded-3xl text-center space-y-3 shadow-xl">
+        <h3 className="text-lg font-bold font-heading text-white">No Active Event</h3>
+        <p className="text-xs text-zinc-400">Build an event first to customize theme styling and SVG background overlays.</p>
+      </div>
+    );
+  }
+
   const handleSvgFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {

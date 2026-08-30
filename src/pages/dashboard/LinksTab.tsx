@@ -14,6 +14,15 @@ export const LinksTab: React.FC = () => {
   const [type, setType] = useState<LinkType>('registration');
   const [featured, setFeatured] = useState(false);
 
+  if (!activeEvent) {
+    return (
+      <div className="p-8 sm:p-12 bg-neutral-900 border border-white/10 rounded-3xl text-center space-y-3 shadow-xl">
+        <h3 className="text-lg font-bold font-heading text-white">No Active Event</h3>
+        <p className="text-xs text-zinc-400">Build an event first to configure custom links and registration buttons.</p>
+      </div>
+    );
+  }
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !url) return;

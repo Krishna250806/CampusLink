@@ -303,7 +303,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     members: []
   } : DEFAULT_FALLBACK_COMMITTEE);
 
-  const activeEvent = userEvents.find(e => e.id === activeEventId) || userEvents[0] || DEFAULT_FALLBACK_EVENT;
+  const activeEvent = userEvents.find(e => e.id === activeEventId) || userEvents[0] || (user ? null : DEFAULT_FALLBACK_EVENT);
 
   const setActiveEventId = (id: string) => {
     if (userEvents.some(e => e.id === id)) {
@@ -532,7 +532,12 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       ]
     };
 
-    setEvents(prev => [created, ...prev.filter(e => e.id !== created.id)]);
+    setEvents(prev => {
+      const updated = [created, ...prev.filter(e => e.id !== created.id)];
+      localStorage.setItem(getUserEventsKey(activeUser.id), JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      return updated;
+    });
     setActiveEventIdState(created.id);
 
     // Sync to Supabase DB if configured
@@ -575,7 +580,16 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
       const list = exists ? prev : [{ ...DEFAULT_FALLBACK_EVENT, ...partial, id: eventId }, ...prev];
-      return list.map(e => e.id === eventId ? { ...e, ...partial, updatedAt: new Date().toISOString() } : e);
+      const updated = list.map(e => e.id === eventId ? {
+        ...e,
+        ...partial,
+        announcements: Array.isArray(partial.announcements) ? partial.announcements : (e.announcements || []),
+        links: Array.isArray(partial.links) ? partial.links : (e.links || []),
+        updatedAt: new Date().toISOString()
+      } : e);
+      localStorage.setItem(getUserEventsKey(user?.id), JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      return updated;
     });
     setActiveEventIdState(eventId);
 

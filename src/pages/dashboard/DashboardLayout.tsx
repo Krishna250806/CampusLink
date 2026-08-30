@@ -187,12 +187,14 @@ export const DashboardLayout: React.FC = () => {
               <Plus className="w-4 h-4 text-neutral-950" /> Build New Event
             </button>
 
-            <button
-              onClick={() => setIsPhonePreviewOpen(true)}
-              className="px-4 py-2.5 glass-panel hover:bg-white/10 text-white border border-white/15 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <ExternalLink className="w-4 h-4" /> View Public Page
-            </button>
+            {activeEvent && (
+              <button
+                onClick={() => setIsPhonePreviewOpen(true)}
+                className="px-4 py-2.5 glass-panel hover:bg-white/10 text-white border border-white/15 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <ExternalLink className="w-4 h-4" /> View Public Page
+              </button>
+            )}
           </div>
         </div>
 

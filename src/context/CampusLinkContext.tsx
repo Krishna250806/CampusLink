@@ -170,20 +170,21 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return [DEFAULT_FALLBACK_COMMITTEE];
   });
 
+  // Master events dataset containing all published & created events
   const [events, setEvents] = useState<Event[]>(() => {
+    const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_EVENTS);
+    if (globalSaved) {
+      try {
+        const parsed = JSON.parse(globalSaved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
     const userKey = getUserEventsKey(user?.id);
     const userSaved = localStorage.getItem(userKey);
     if (userSaved) {
       try {
         const parsed = JSON.parse(userSaved);
-        if (parsed && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_EVENTS);
-    if (globalSaved) {
-      try {
-        const parsed = JSON.parse(globalSaved);
-        if (parsed && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch {}
     }
     return [DEFAULT_FALLBACK_EVENT];
@@ -199,22 +200,22 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try { return JSON.parse(saved); } catch { return INITIAL_ANALYTICS; }
   });
 
-  // Load user-specific datasets when logged in
+  // Sync workspace datasets when user changes without dropping global events
   useEffect(() => {
     if (user?.id) {
-      const commKey = getUserCommitteesKey(user.id);
       const evtKey = getUserEventsKey(user.id);
-      
-      const savedComm = localStorage.getItem(commKey);
       const savedEvt = localStorage.getItem(evtKey);
-      
-      if (savedComm) {
-        try { setCommittees(JSON.parse(savedComm)); } catch {}
-      }
       if (savedEvt) {
         try {
-          const parsed = JSON.parse(savedEvt);
-          setEvents(parsed || []);
+          const userParsed: Event[] = JSON.parse(savedEvt);
+          if (Array.isArray(userParsed) && userParsed.length > 0) {
+            setEvents(prev => {
+              const map = new Map<string, Event>();
+              prev.forEach(e => map.set(e.id, e));
+              userParsed.forEach(e => map.set(e.id, e));
+              return Array.from(map.values());
+            });
+          }
         } catch {}
       }
     }

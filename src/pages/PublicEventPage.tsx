@@ -5,7 +5,7 @@ import { DynamicIcon } from '../components/common/DynamicIcon';
 import { QrModal } from '../components/common/QrModal';
 import { ShareModal } from '../components/common/ShareModal';
 import { Modal } from '../components/common/Modal';
-import type { EventLink, Announcement, ScheduleItem, RulebookSection, Event } from '../types/campuslink';
+import type { EventLink, Announcement, ScheduleItem, RulebookSection, Event, Committee } from '../types/campuslink';
 import {
   Calendar,
   MapPin,
@@ -43,14 +43,14 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
 
   const targetSlug = (eventSlug || '').toLowerCase();
 
-  // Match Committee & Event with safe fallbacks
+  // Match Event first from all events using slug or active event
   const event: Event = customEvent
     || (targetSlug ? events.find(e => e.slug?.toLowerCase() === targetSlug) : undefined)
-    || (targetSlug ? events.find(e => e.committeeId === committee?.id && e.slug?.toLowerCase() === targetSlug) : undefined)
     || events[0]
     || DEFAULT_FALLBACK_EVENT;
 
-  const committee = customEvent?.committee
+  // Match Committee based on resolved event or handle
+  const committee: Committee = customEvent?.committee
     || committees.find(c => c.id === event?.committeeId)
     || committees.find(c => c.handle?.toLowerCase() === (handle || '').toLowerCase())
     || committees[0]

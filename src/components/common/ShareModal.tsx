@@ -22,7 +22,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [showReportForm, setShowReportForm] = useState(false);
   const [reportReason, setReportReason] = useState('');
 
-  const publicUrl = `${window.location.origin}/@${committee.handle}/${event.slug}`;
+  const publicUrl = `${window.location.origin}/events/${event.slug}`;
   const whatsappText = encodeURIComponent(
     `Check out ${event.title} by ${committee.name}!\n"${event.tagline}"\n\nRegister & Details: ${publicUrl}`
   );

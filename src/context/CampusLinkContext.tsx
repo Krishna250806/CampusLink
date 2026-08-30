@@ -61,10 +61,12 @@ const STORAGE_KEY_USER = 'campuslink_clean_v6_user';
 const STORAGE_KEY_REGISTERED_USERS = 'campuslink_clean_v6_registry';
 const STORAGE_KEY_ANALYTICS = 'campuslink_clean_v6_analytics';
 const STORAGE_KEY_ACTIVE_EVT = 'campuslink_clean_v6_active_evt';
+const STORAGE_KEY_GLOBAL_EVENTS = 'campuslink_clean_v6_global_events';
+const STORAGE_KEY_GLOBAL_COMMITTEES = 'campuslink_clean_v6_global_committees';
 
 // Helper for user-scoped storage keys
-const getUserCommitteesKey = (userId?: string) => `campuslink_v6_comm_${userId || 'guest'}`;
-const getUserEventsKey = (userId?: string) => `campuslink_v6_evt_${userId || 'guest'}`;
+const getUserCommitteesKey = (userId?: string) => `campuslink_v6_comm_${userId || 'default'}`;
+const getUserEventsKey = (userId?: string) => `campuslink_v6_evt_${userId || 'default'}`;
 
 // Clear legacy storage cache keys once
 if (typeof window !== 'undefined') {
@@ -142,19 +144,37 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try { return JSON.parse(saved); } catch { return []; }
   });
 
-  // User-isolated workspace datasets
+  // User & Global workspace datasets
   const [committees, setCommittees] = useState<Committee[]>(() => {
-    const key = getUserCommitteesKey(user?.id);
-    const saved = localStorage.getItem(key);
-    if (!saved) return user ? [DEFAULT_FALLBACK_COMMITTEE] : [];
-    try { return JSON.parse(saved); } catch { return []; }
+    const userKey = getUserCommitteesKey(user?.id);
+    const userSaved = localStorage.getItem(userKey);
+    if (userSaved) {
+      try { return JSON.parse(userSaved); } catch {}
+    }
+    const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
+    if (globalSaved) {
+      try { return JSON.parse(globalSaved); } catch {}
+    }
+    return [DEFAULT_FALLBACK_COMMITTEE];
   });
 
   const [events, setEvents] = useState<Event[]>(() => {
-    const key = getUserEventsKey(user?.id);
-    const saved = localStorage.getItem(key);
-    if (!saved) return user ? [DEFAULT_FALLBACK_EVENT] : [];
-    try { return JSON.parse(saved); } catch { return []; }
+    const userKey = getUserEventsKey(user?.id);
+    const userSaved = localStorage.getItem(userKey);
+    if (userSaved) {
+      try {
+        const parsed = JSON.parse(userSaved);
+        if (parsed && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_EVENTS);
+    if (globalSaved) {
+      try {
+        const parsed = JSON.parse(globalSaved);
+        if (parsed && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return [DEFAULT_FALLBACK_EVENT];
   });
 
   const [activeEventId, setActiveEventIdState] = useState<string>(() => {
@@ -167,7 +187,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try { return JSON.parse(saved); } catch { return INITIAL_ANALYTICS; }
   });
 
-  // Re-load user workspace datasets whenever user changes
+  // Load user-specific datasets when logged in, without wiping global store
   useEffect(() => {
     if (user?.id) {
       const commKey = getUserCommitteesKey(user.id);
@@ -177,32 +197,14 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const savedEvt = localStorage.getItem(evtKey);
       
       if (savedComm) {
-        try { setCommittees(JSON.parse(savedComm)); } catch { setCommittees([DEFAULT_FALLBACK_COMMITTEE]); }
-      } else {
-        const defaultComm: Committee = {
-          ...DEFAULT_FALLBACK_COMMITTEE,
-          id: user.committeeId || `comm_${user.id}`,
-          name: `${user.name}'s Committee`,
-          handle: user.email.split('@')[0].toLowerCase()
-        };
-        setCommittees([defaultComm]);
+        try { setCommittees(JSON.parse(savedComm)); } catch {}
       }
-
       if (savedEvt) {
-        try { setEvents(JSON.parse(savedEvt)); } catch { setEvents([DEFAULT_FALLBACK_EVENT]); }
-      } else {
-        const defaultEvt: Event = {
-          ...DEFAULT_FALLBACK_EVENT,
-          id: `evt_${Date.now()}`,
-          committeeId: user.committeeId || `comm_${user.id}`,
-          title: `Welcome to ${user.name}'s Workspace`,
-          slug: 'welcome-event'
-        };
-        setEvents([defaultEvt]);
+        try {
+          const parsed = JSON.parse(savedEvt);
+          if (parsed && parsed.length > 0) setEvents(parsed);
+        } catch {}
       }
-    } else {
-      setCommittees([]);
-      setEvents([]);
     }
   }, [user?.id]);
 
@@ -249,14 +251,14 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [registeredAccounts]);
 
   useEffect(() => {
-    if (user?.id) {
-      localStorage.setItem(getUserCommitteesKey(user.id), JSON.stringify(committees));
-    }
+    localStorage.setItem(getUserCommitteesKey(user?.id), JSON.stringify(committees));
+    localStorage.setItem(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(committees));
   }, [committees, user?.id]);
 
   useEffect(() => {
-    if (user?.id) {
-      localStorage.setItem(getUserEventsKey(user.id), JSON.stringify(events));
+    localStorage.setItem(getUserEventsKey(user?.id), JSON.stringify(events));
+    if (events && events.length > 0) {
+      localStorage.setItem(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(events));
     }
   }, [events, user?.id]);
 

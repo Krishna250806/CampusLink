@@ -28,7 +28,9 @@ export function App() {
           <Route path="/dashboard/builder" element={<EventBuilderPage />} />
           <Route path="/dashboard/builder/:eventId" element={<EventBuilderPage />} />
 
-          {/* Short Public Event & Committee Handles (§18) */}
+          {/* Public Event Routes */}
+          <Route path="/events/:eventSlug" element={<PublicEventPage />} />
+          <Route path="/event/:eventSlug" element={<PublicEventPage />} />
           <Route path="/@:handle/:eventSlug" element={<PublicEventPage />} />
           <Route path="/@:handle" element={<PublicCommitteePage />} />
 

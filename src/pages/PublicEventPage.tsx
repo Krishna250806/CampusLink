@@ -41,17 +41,20 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [selectedModalContent, setSelectedModalContent] = useState<'schedule' | 'rulebook' | null>(null);
 
+  const targetSlug = (eventSlug || '').toLowerCase();
+
   // Match Committee & Event with safe fallbacks
+  const event: Event = customEvent
+    || (targetSlug ? events.find(e => e.slug?.toLowerCase() === targetSlug) : undefined)
+    || (targetSlug ? events.find(e => e.committeeId === committee?.id && e.slug?.toLowerCase() === targetSlug) : undefined)
+    || events[0]
+    || DEFAULT_FALLBACK_EVENT;
+
   const committee = customEvent?.committee
-    || committees.find(c => c.id === customEvent?.committeeId)
+    || committees.find(c => c.id === event?.committeeId)
     || committees.find(c => c.handle?.toLowerCase() === (handle || '').toLowerCase())
     || committees[0]
     || DEFAULT_FALLBACK_COMMITTEE;
-
-  const event: Event = customEvent
-    || events.find(e => e.committeeId === committee?.id && e.slug?.toLowerCase() === (eventSlug || '').toLowerCase())
-    || events[0]
-    || DEFAULT_FALLBACK_EVENT;
 
   // Track page view once
   useEffect(() => {

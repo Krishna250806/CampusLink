@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useCampusLink } from '../../context/CampusLinkContext';
-import { Save, RefreshCw, AlertCircle, Upload, Image as ImageIcon } from 'lucide-react';
+import { Save, AlertCircle, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 const RESERVED_HANDLES = ['admin', 'api', 'dashboard', 'login', 'signup', 'auth', 'settings', 'help', 'app'];
 
 export const SettingsTab: React.FC = () => {
-  const { activeCommittee, updateCommittee, resetData } = useCampusLink();
+  const { activeCommittee, updateCommittee } = useCampusLink();
 
   const [name, setName] = useState(activeCommittee.name);
   const [handle, setHandle] = useState(activeCommittee.handle);
@@ -211,20 +211,6 @@ export const SettingsTab: React.FC = () => {
         </div>
       </form>
 
-      {/* Reset System Data */}
-      <div className="p-6 bg-neutral-900 border border-white/10 rounded-3xl space-y-3">
-        <h3 className="text-sm font-bold text-white font-heading">Reset Application State</h3>
-        <p className="text-xs text-slate-400">Clear local storage state and re-initialize clean database.</p>
-        <button
-          type="button"
-          onClick={() => {
-            if (confirm('Reset application data?')) resetData();
-          }}
-          className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-rose-400 font-bold text-xs rounded-xl flex items-center gap-1.5 border border-rose-500/20"
-        >
-          <RefreshCw className="w-4 h-4" /> Reset Clean State
-        </button>
-      </div>
     </div>
   );
 };

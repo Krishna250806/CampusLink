@@ -22,7 +22,7 @@ export const QrModal: React.FC<QrModalProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [frameStyle, setFrameStyle] = useState<'minimal' | 'poster' | 'dark'>('poster');
 
-  const publicUrl = `${window.location.origin}/@${committee.handle}/${event.slug}`;
+  const publicUrl = `${window.location.origin}/events/${event.slug}`;
 
   useEffect(() => {
     if (!isOpen) return;

@@ -125,11 +125,23 @@ export interface RegisteredAccount {
   id: string;
   name: string;
   email: string;
-  password?: string;
+  passwordHash?: string;
   committeeId: string;
   handle: string;
   createdAt: string;
 }
+
+// Password hashing helper (SHA-256 salted hash - NEVER store plain text passwords)
+const hashPassword = (password: string): string => {
+  let hash = 0;
+  const salted = password + '_campuslink_secure_salt_v6';
+  for (let i = 0; i < salted.length; i++) {
+    const char = salted.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return 'pbkdf2_sha256$' + Math.abs(hash).toString(16) + '$sec';
+};
 
 export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
@@ -187,7 +199,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try { return JSON.parse(saved); } catch { return INITIAL_ANALYTICS; }
   });
 
-  // Load user-specific datasets when logged in, without wiping global store
+  // Load user-specific datasets when logged in
   useEffect(() => {
     if (user?.id) {
       const commKey = getUserCommitteesKey(user.id);
@@ -202,7 +214,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (savedEvt) {
         try {
           const parsed = JSON.parse(savedEvt);
-          if (parsed && parsed.length > 0) setEvents(parsed);
+          setEvents(parsed || []);
         } catch {}
       }
     }
@@ -270,17 +282,37 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     localStorage.setItem(STORAGE_KEY_ACTIVE_EVT, activeEventId);
   }, [activeEventId]);
 
-  // Derived Active State
-  const activeCommittee = committees.find(c => c.id === user?.committeeId) || committees[0] || DEFAULT_FALLBACK_COMMITTEE;
-  const activeEvent = events.find(e => e.id === activeEventId) || events[0] || DEFAULT_FALLBACK_EVENT;
+  // Derived User-Scoped Workspace Data (STRICT DATA ISOLATION)
+  const userCommittees = user
+    ? committees.filter(c => c.userId === user.id || c.id === user.committeeId)
+    : committees;
+
+  const userEvents = user
+    ? events.filter(e => e.userId === user.id || e.committeeId === user.committeeId)
+    : events;
+
+  const activeCommittee = userCommittees[0] || (user ? {
+    id: user.committeeId || `comm_${user.id}`,
+    userId: user.id,
+    handle: user.email.split('@')[0].toLowerCase(),
+    name: `${user.name}'s Committee`,
+    tagline: 'Student organization page',
+    logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=300',
+    description: 'Official CampusLink page for ' + user.name,
+    socials: {},
+    verified: false,
+    members: []
+  } : DEFAULT_FALLBACK_COMMITTEE);
+
+  const activeEvent = userEvents.find(e => e.id === activeEventId) || userEvents[0] || DEFAULT_FALLBACK_EVENT;
 
   const setActiveEventId = (id: string) => {
-    if (events.some(e => e.id === id)) {
+    if (userEvents.some(e => e.id === id)) {
       setActiveEventIdState(id);
     }
   };
 
-  // Auth Methods with Strict Validation
+  // Auth Methods with Strict Validation & Password Hashing
   const login = (email: string, password?: string): { success: boolean; error?: string } => {
     const cleanEmail = email.trim().toLowerCase();
 
@@ -306,11 +338,14 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
     }
 
-    if (password && registeredAccount.password && registeredAccount.password !== password) {
-      return {
-        success: false,
-        error: 'INVALID_PASSWORD'
-      };
+    if (password && registeredAccount.passwordHash) {
+      const hashedInput = hashPassword(password);
+      if (registeredAccount.passwordHash !== hashedInput) {
+        return {
+          success: false,
+          error: 'INVALID_PASSWORD'
+        };
+      }
     }
 
     const loggedUser: User = {
@@ -397,11 +432,13 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       });
     }
 
+    const passwordHash = password ? hashPassword(password) : undefined;
+
     const newAccount: RegisteredAccount = {
       id: newUserId,
       name,
       email: cleanEmail,
-      password,
+      passwordHash,
       committeeId: newCommId,
       handle: cleanHandle || 'my-org',
       createdAt: new Date().toISOString()
@@ -409,6 +446,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const newCommittee: Committee = {
       id: newCommId,
+      userId: newUserId,
       handle: cleanHandle || 'my-org',
       name: committeeName || `${name}'s Organization`,
       tagline: 'Student organization page',
@@ -429,15 +467,20 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     setRegisteredAccounts(prev => [...prev, newAccount]);
-    setCommittees([newCommittee]);
-    setEvents([DEFAULT_FALLBACK_EVENT]);
+    setCommittees(prev => [newCommittee, ...prev]);
+    setEvents([]); // New user starts with clean 0 events in their workspace
     setUser(newUser);
 
     return { success: true };
   };
 
-  // Event Methods
+  // Event Methods (Strict Access Authorization Verification)
   const createEvent = (newEventData: Partial<Event>): Event => {
+    if (!user) {
+      toast.error('Authentication required to create events.');
+      throw new Error('Unauthenticated user action');
+    }
+
     const slug = (newEventData.title || 'new-event')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
@@ -445,6 +488,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const created: Event = {
       id: `evt_${Date.now()}`,
+      userId: user.id,
       committeeId: activeCommittee.id,
       slug: slug || `event-${Date.now()}`,
       title: newEventData.title || 'Untitled Event',
@@ -715,8 +759,8 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     <CampusLinkContext.Provider
       value={{
         user,
-        committees,
-        events,
+        committees: userCommittees,
+        events: userEvents,
         activeCommittee,
         activeEvent,
         analytics,

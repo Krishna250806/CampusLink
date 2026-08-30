@@ -70,6 +70,7 @@ export interface RulebookSection {
 
 export interface Event {
   id: string;
+  userId?: string;
   committeeId: string;
   slug: string; // e.g., 'technova-2026'
   title: string; // e.g., "TECHNOVA '26"
@@ -99,6 +100,7 @@ export interface Event {
 
 export interface Committee {
   id: string;
+  userId?: string;
   handle: string; // e.g., "technova"
   name: string;   // e.g., "TechNova Society"
   tagline: string; // e.g., "Empowering Student Innovators"

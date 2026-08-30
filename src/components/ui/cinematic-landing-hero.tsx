@@ -12,7 +12,7 @@ if (typeof window !== "undefined") {
 }
 
 const INJECTED_STYLES = `
-  .gsap-reveal { visibility: hidden; }
+  .gsap-reveal { visibility: visible; }
 
   /* Environment Overlays */
   .film-grain {
@@ -241,11 +241,11 @@ export function CinematicHero({
     const isMobile = window.innerWidth < 768;
 
     const ctx = gsap.context(() => {
-      gsap.set(".text-track", { autoAlpha: 0, y: 60, scale: 0.85, filter: "blur(20px)", rotationX: -20 });
-      gsap.set(".text-days", { autoAlpha: 1, clipPath: "inset(0 100% 0 0)" });
-      gsap.set(".main-card", { y: window.innerHeight + 200, autoAlpha: 1 });
-      gsap.set([".card-left-text", ".card-right-text", ".mockup-scroll-wrapper", ".floating-badge", ".phone-widget"], { autoAlpha: 0 });
-      gsap.set(".cta-wrapper", { autoAlpha: 0, scale: 0.8, filter: "blur(30px)" });
+      gsap.set(".text-track", { autoAlpha: 1, y: 0, scale: 1, filter: "blur(0px)", rotationX: 0 });
+      gsap.set(".text-days", { autoAlpha: 1, clipPath: "inset(0 0% 0 0)" });
+      gsap.set(".main-card", { y: 0, autoAlpha: 1 });
+      gsap.set([".card-left-text", ".card-right-text", ".mockup-scroll-wrapper", ".floating-badge", ".phone-widget"], { autoAlpha: 1 });
+      gsap.set(".cta-wrapper", { autoAlpha: 1, scale: 1, filter: "blur(0px)" });
 
       const introTl = gsap.timeline({ delay: 0.3 });
       introTl

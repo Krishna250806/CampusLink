@@ -28,28 +28,10 @@ export const QrModal: React.FC<QrModalProps> = ({
 
   const targetSlug = event.slug || event.id || 'my-event';
 
-  let payloadQuery = '';
-  try {
-    const compactEventPayload = {
-      title: event.title,
-      tagline: event.tagline,
-      description: event.description,
-      posterUrl: event.posterUrl,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      venue: event.venue,
-      address: event.address,
-      primaryCtaText: event.primaryCtaText,
-      primaryCtaUrl: event.primaryCtaUrl,
-      themeId: event.themeId,
-      customAccentColor: event.customAccentColor,
-      links: event.links || []
-    };
-    payloadQuery = `?d=${btoa(encodeURIComponent(JSON.stringify(compactEventPayload)))}`;
-  } catch (e) {}
-
-  // Clean, high-performance public URL for QR scanning & sharing (with instant scanner fallback)
-  const publicUrl = typeof window !== 'undefined' ? `${window.location.origin}/events/${targetSlug}${payloadQuery}` : '';
+  // Clean, high-contrast, instant-scannable public URL for camera scanners
+  const publicUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/events/${targetSlug}`
+    : `https://campuslink.app/events/${targetSlug}`;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -62,22 +44,22 @@ export const QrModal: React.FC<QrModalProps> = ({
         if (typeof qrFn === 'function') {
           const url = await qrFn(publicUrl, {
             width: 400,
-            margin: 2,
+            margin: 4,
             color: {
-              dark: frameStyle === 'dark' ? '#00f0ff' : '#0f172a',
+              dark: frameStyle === 'dark' ? '#00f0ff' : '#000000',
               light: frameStyle === 'dark' ? '#090d16' : '#ffffff'
             },
-            errorCorrectionLevel: 'M'
+            errorCorrectionLevel: 'H'
           });
           if (isMounted) setDataUrl(url);
         } else {
-          // Fallback to Google Charts QR Code API if local canvas fails
-          const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicUrl)}`;
+          // Fallback to QR server API if local canvas fails
+          const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=4&data=${encodeURIComponent(publicUrl)}`;
           if (isMounted) setDataUrl(fallbackUrl);
         }
       } catch (err) {
         console.error('QR code generation error:', err);
-        const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicUrl)}`;
+        const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=4&data=${encodeURIComponent(publicUrl)}`;
         if (isMounted) setDataUrl(fallbackUrl);
       }
     };

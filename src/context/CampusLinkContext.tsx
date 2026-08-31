@@ -329,10 +329,6 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     ? committees.filter(c => !c.userId || c.userId === user.id || c.id === user.committeeId || c.id === 'comm_main')
     : committees;
 
-  const userEvents = user
-    ? events.filter(e => !e.userId || e.userId === user.id || e.committeeId === user.committeeId || e.committeeId === activeCommittee.id || e.committeeId === 'comm_main')
-    : events;
-
   const activeCommittee = userCommittees[0] || (user ? {
     id: user.committeeId || `comm_${user.id}`,
     userId: user.id,
@@ -345,6 +341,10 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     verified: false,
     members: []
   } : DEFAULT_FALLBACK_COMMITTEE);
+
+  const userEvents = user
+    ? events.filter(e => !e.userId || e.userId === user.id || e.committeeId === user.committeeId || (activeCommittee && e.committeeId === activeCommittee.id) || e.committeeId === 'comm_main')
+    : events;
 
   const activeEvent = userEvents.find(e => e.id === activeEventId)
     || userEvents[0]

@@ -23,8 +23,6 @@ export const QrModal: React.FC<QrModalProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [frameStyle, setFrameStyle] = useState<'minimal' | 'poster' | 'dark'>('poster');
 
-  if (!isOpen) return null;
-
   const event = inputEvent || DEFAULT_FALLBACK_EVENT;
   const committee = inputCommittee || DEFAULT_FALLBACK_COMMITTEE;
 
@@ -51,7 +49,7 @@ export const QrModal: React.FC<QrModalProps> = ({
   } catch (e) {}
 
   // Clean, high-performance public URL for QR scanning & sharing (with instant scanner fallback)
-  const publicUrl = `${window.location.origin}/events/${targetSlug}${payloadQuery}`;
+  const publicUrl = typeof window !== 'undefined' ? `${window.location.origin}/events/${targetSlug}${payloadQuery}` : '';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -90,6 +88,8 @@ export const QrModal: React.FC<QrModalProps> = ({
       isMounted = false;
     };
   }, [isOpen, publicUrl, frameStyle]);
+
+  if (!isOpen) return null;
 
   const handleDownloadPng = () => {
     if (!dataUrl) return;

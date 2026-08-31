@@ -13,6 +13,14 @@ interface QrModalProps {
   committee?: Committee | null;
 }
 
+const safeBtoa = (str: string) => {
+  try {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_match, p1) => String.fromCharCode(parseInt(p1, 16))));
+  } catch (e) {
+    return '';
+  }
+};
+
 export const QrModal: React.FC<QrModalProps> = ({
   isOpen,
   onClose,
@@ -43,7 +51,10 @@ export const QrModal: React.FC<QrModalProps> = ({
       u: event.primaryCtaUrl,
       th: event.themeId,
       ac: event.customAccentColor,
-      bg: event.bgSvgPattern || '',
+      bg: event.bgSvgPattern && event.bgSvgPattern.length < 100 ? event.bgSvgPattern : '',
+      cn: committee.name || '',
+      ch: committee.handle || '',
+      cl: committee.logoUrl || '',
       l: (event.links || []).map(link => ({
         id: link.id,
         t: link.title,
@@ -54,7 +65,8 @@ export const QrModal: React.FC<QrModalProps> = ({
         f: link.featured ? 1 : 0
       }))
     };
-    payloadQuery = `?d=${btoa(encodeURIComponent(JSON.stringify(minPayload)))}`;
+    const encoded = safeBtoa(JSON.stringify(minPayload));
+    if (encoded) payloadQuery = `?d=${encoded}`;
   } catch (e) {}
 
   // Clean, high-contrast, instant-scannable public URL for camera scanners

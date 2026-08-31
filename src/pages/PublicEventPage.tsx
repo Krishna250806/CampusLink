@@ -7,6 +7,7 @@ import { QrModal } from '../components/common/QrModal';
 import { ShareModal } from '../components/common/ShareModal';
 import { Modal } from '../components/common/Modal';
 import type { EventLink, Announcement, ScheduleItem, RulebookSection, Event, Committee } from '../types/campuslink';
+import { resolveSvgPattern } from '../utils/svgBackgrounds';
 import {
   Calendar,
   MapPin,
@@ -141,6 +142,9 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
           themeId: parsed.themeId || parsed.th || DEFAULT_FALLBACK_EVENT.themeId,
           customAccentColor: parsed.customAccentColor || parsed.ac || DEFAULT_FALLBACK_EVENT.customAccentColor,
           bgSvgPattern: parsed.bgSvgPattern || parsed.bg || '',
+          committeeName: parsed.committeeName || parsed.cn || '',
+          committeeHandle: parsed.committeeHandle || parsed.ch || '',
+          committeeLogoUrl: parsed.committeeLogoUrl || parsed.cl || '',
           links: parsedLinks.length > 0 ? parsedLinks : DEFAULT_FALLBACK_EVENT.links
         };
       }
@@ -156,11 +160,21 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     || DEFAULT_FALLBACK_EVENT;
 
   // Match Committee based on resolved event or handle
-  const committee: Committee = customEvent?.committee
-    || committees.find(c => c.id === event?.committeeId)
+  const matchedCommittee = committees.find(c => c.id === event?.committeeId)
     || committees.find(c => c.handle?.toLowerCase() === (handle || '').toLowerCase())
-    || committees[0]
-    || DEFAULT_FALLBACK_COMMITTEE;
+    || (event as any)?.committee;
+
+  const committee: Committee = {
+    id: matchedCommittee?.id || event?.committeeId || DEFAULT_FALLBACK_COMMITTEE.id,
+    handle: (event as any)?.committeeHandle || matchedCommittee?.handle || (handle && handle !== 'events' ? handle : DEFAULT_FALLBACK_COMMITTEE.handle),
+    name: (event as any)?.committeeName || matchedCommittee?.name || DEFAULT_FALLBACK_COMMITTEE.name,
+    logoUrl: (event as any)?.committeeLogoUrl || matchedCommittee?.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl,
+    tagline: matchedCommittee?.tagline || DEFAULT_FALLBACK_COMMITTEE.tagline,
+    description: matchedCommittee?.description || DEFAULT_FALLBACK_COMMITTEE.description,
+    socials: matchedCommittee?.socials || DEFAULT_FALLBACK_COMMITTEE.socials,
+    verified: matchedCommittee?.verified ?? DEFAULT_FALLBACK_COMMITTEE.verified,
+    members: matchedCommittee?.members || []
+  };
 
   // Track page view once
   useEffect(() => {
@@ -260,6 +274,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
 
   const themeClass = `theme-${event.themeId || 'midnight'}`;
   const accentColor = event.customAccentColor || '#8b5cf6';
+  const activeSvgUrl = resolveSvgPattern(event.bgSvgPattern);
 
   return (
     <div
@@ -267,11 +282,11 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       style={{ '--accent-color': accentColor } as React.CSSProperties}
     >
       {/* SVG Background Pattern Overlay */}
-      {event.bgSvgPattern && (
+      {activeSvgUrl && (
         <div
           className="absolute inset-0 pointer-events-none z-0 opacity-90 transition-all duration-300"
           style={{
-            backgroundImage: `url("${event.bgSvgPattern.replace(/"/g, "'")}")`,
+            backgroundImage: `url("${activeSvgUrl.replace(/"/g, "'")}")`,
             backgroundSize: 'cover',
             backgroundPosition: 'center top',
             backgroundRepeat: 'no-repeat',

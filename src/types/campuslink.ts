@@ -90,6 +90,9 @@ export interface Event {
   customAccentColor?: string;
   bgSvgPattern?: string;
   status: 'published' | 'draft' | 'archived';
+  committeeName?: string;
+  committeeHandle?: string;
+  committeeLogoUrl?: string;
   links: EventLink[];
   announcements: Announcement[];
   schedule?: ScheduleItem[];

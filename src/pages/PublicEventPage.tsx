@@ -111,7 +111,11 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   let decodedEventFromUrl: Event | null = null;
   if (encodedData) {
     try {
-      const parsed = JSON.parse(decodeURIComponent(atob(encodedData)));
+      const binary = atob(encodedData);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const jsonStr = new TextDecoder().decode(bytes);
+      const parsed = JSON.parse(jsonStr);
       if (parsed && (parsed.title || parsed.t)) {
         const rawLinks = parsed.links || parsed.l || [];
         const parsedLinks = Array.isArray(rawLinks) ? rawLinks.map((l: any, idx: number) => ({

@@ -57,6 +57,10 @@ CREATE TABLE public.events (
   theme_id TEXT DEFAULT 'midnight',
   custom_accent_color TEXT DEFAULT '#fafafa',
   bg_svg_pattern TEXT,
+  links JSONB DEFAULT '[]'::jsonb,
+  announcements JSONB DEFAULT '[]'::jsonb,
+  schedule JSONB DEFAULT '[]'::jsonb,
+  rulebook JSONB DEFAULT '[]'::jsonb,
   status TEXT DEFAULT 'published',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

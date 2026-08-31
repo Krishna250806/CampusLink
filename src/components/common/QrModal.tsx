@@ -4,53 +4,97 @@ import { Modal } from './Modal';
 import type { Event, Committee } from '../../types/campuslink';
 import { Download, Printer, Copy, Check, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
+import { DEFAULT_FALLBACK_COMMITTEE, DEFAULT_FALLBACK_EVENT } from '../../context/CampusLinkContext';
 
 interface QrModalProps {
   isOpen: boolean;
   onClose: () => void;
-  event: Event;
-  committee: Committee;
+  event?: Event | null;
+  committee?: Committee | null;
 }
 
 export const QrModal: React.FC<QrModalProps> = ({
   isOpen,
   onClose,
-  event,
-  committee
+  event: inputEvent,
+  committee: inputCommittee
 }) => {
   const [dataUrl, setDataUrl] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
   const [frameStyle, setFrameStyle] = useState<'minimal' | 'poster' | 'dark'>('poster');
 
-  if (!isOpen || !event) return null;
+  if (!isOpen) return null;
 
-  // Clean, high-performance public URL for QR scanning & sharing
-  const publicUrl = `${window.location.origin}/events/${event.slug || ''}`;
+  const event = inputEvent || DEFAULT_FALLBACK_EVENT;
+  const committee = inputCommittee || DEFAULT_FALLBACK_COMMITTEE;
+
+  const targetSlug = event.slug || event.id || 'my-event';
+
+  let payloadQuery = '';
+  try {
+    const compactEventPayload = {
+      title: event.title,
+      tagline: event.tagline,
+      description: event.description,
+      posterUrl: event.posterUrl,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      venue: event.venue,
+      address: event.address,
+      primaryCtaText: event.primaryCtaText,
+      primaryCtaUrl: event.primaryCtaUrl,
+      themeId: event.themeId,
+      customAccentColor: event.customAccentColor,
+      links: event.links || []
+    };
+    payloadQuery = `?d=${btoa(encodeURIComponent(JSON.stringify(compactEventPayload)))}`;
+  } catch (e) {}
+
+  // Clean, high-performance public URL for QR scanning & sharing (with instant scanner fallback)
+  const publicUrl = `${window.location.origin}/events/${targetSlug}${payloadQuery}`;
 
   useEffect(() => {
-    if (!isOpen || !event?.slug) return;
+    if (!isOpen) return;
 
-    QRCode.toDataURL(publicUrl, {
-      width: 400,
-      margin: 2,
-      color: {
-        dark: frameStyle === 'dark' ? '#00f0ff' : '#0f172a',
-        light: frameStyle === 'dark' ? '#090d16' : '#ffffff'
-      },
-      errorCorrectionLevel: 'M'
-    })
-      .then(url => {
-        setDataUrl(url);
-      })
-      .catch(err => {
+    let isMounted = true;
+
+    const generateQr = async () => {
+      try {
+        const qrFn = (QRCode as any)?.toDataURL || (QRCode as any)?.default?.toDataURL;
+        if (typeof qrFn === 'function') {
+          const url = await qrFn(publicUrl, {
+            width: 400,
+            margin: 2,
+            color: {
+              dark: frameStyle === 'dark' ? '#00f0ff' : '#0f172a',
+              light: frameStyle === 'dark' ? '#090d16' : '#ffffff'
+            },
+            errorCorrectionLevel: 'M'
+          });
+          if (isMounted) setDataUrl(url);
+        } else {
+          // Fallback to Google Charts QR Code API if local canvas fails
+          const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicUrl)}`;
+          if (isMounted) setDataUrl(fallbackUrl);
+        }
+      } catch (err) {
         console.error('QR code generation error:', err);
-      });
-  }, [isOpen, publicUrl, frameStyle, event?.slug]);
+        const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(publicUrl)}`;
+        if (isMounted) setDataUrl(fallbackUrl);
+      }
+    };
+
+    generateQr();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, publicUrl, frameStyle]);
 
   const handleDownloadPng = () => {
     if (!dataUrl) return;
     const link = document.createElement('a');
-    link.download = `${committee.handle}-${event.slug}-qr.png`;
+    link.download = `${committee.handle || 'org'}-${targetSlug}-qr.png`;
     link.href = dataUrl;
     link.click();
     toast.success(`Downloaded high-res ${frameStyle} QR poster PNG!`);
@@ -105,13 +149,13 @@ export const QrModal: React.FC<QrModalProps> = ({
           {/* Header in QR Frame */}
           <div className="flex items-center justify-center gap-3 mb-5">
             <img
-              src={committee.logoUrl}
-              alt={committee.name}
+              src={committee.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl}
+              alt={committee.name || 'Committee'}
               className="w-12 h-12 rounded-full object-cover border-2 border-indigo-500/40 shadow-md"
             />
             <div className="text-left">
-              <p className="text-xs font-mono font-bold uppercase tracking-wider opacity-80">{committee.name}</p>
-              <h4 className="text-xl font-black font-heading leading-tight">{event.title}</h4>
+              <p className="text-xs font-mono font-bold uppercase tracking-wider opacity-80">{committee.name || 'Student Committee'}</p>
+              <h4 className="text-xl font-black font-heading leading-tight">{event.title || 'Event Page'}</h4>
             </div>
           </div>
 
@@ -129,7 +173,7 @@ export const QrModal: React.FC<QrModalProps> = ({
           </p>
 
           <p className="mt-1.5 text-[11px] font-mono opacity-70">
-            campuslink.app/@{committee.handle}/{event.slug}
+            campuslink.app/@{committee.handle || 'org'}/{targetSlug}
           </p>
         </div>
 
@@ -144,7 +188,7 @@ export const QrModal: React.FC<QrModalProps> = ({
           
           <button
             onClick={handleCopyLink}
-            className="flex items-center gap-2 px-4.5 py-3 glass-panel hover:bg-white/10 text-slate-200 font-bold text-xs rounded-xl border border-white/15 transition-all active:scale-95"
+            className="flex items-center gap-2 px-4.5 py-3 glass-panel hover:bg-white/10 text-slate-200 font-bold text-xs rounded-xl border border-white/15 transition-all active:scale-95 cursor-pointer"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
             {copied ? 'Copied Link!' : 'Copy Public URL'}
@@ -152,7 +196,7 @@ export const QrModal: React.FC<QrModalProps> = ({
 
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-4.5 py-3 glass-panel hover:bg-white/10 text-slate-200 font-bold text-xs rounded-xl border border-white/15 transition-all active:scale-95"
+            className="flex items-center gap-2 px-4.5 py-3 glass-panel hover:bg-white/10 text-slate-200 font-bold text-xs rounded-xl border border-white/15 transition-all active:scale-95 cursor-pointer"
           >
             <Printer className="w-4 h-4" /> Print Poster QR
           </button>
@@ -161,4 +205,5 @@ export const QrModal: React.FC<QrModalProps> = ({
     </Modal>
   );
 };
+
 

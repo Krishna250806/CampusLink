@@ -183,36 +183,54 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // User & Global workspace datasets
   const [committees, setCommittees] = useState<Committee[]>(() => {
+    const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
     const userKey = getUserCommitteesKey(user?.id);
     const userSaved = localStorage.getItem(userKey);
-    if (userSaved) {
-      try { return JSON.parse(userSaved); } catch {}
-    }
-    const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
+    let result: Committee[] = [];
     if (globalSaved) {
-      try { return JSON.parse(globalSaved); } catch {}
+      try {
+        const parsed = JSON.parse(globalSaved);
+        if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
+      } catch {}
     }
-    return [DEFAULT_FALLBACK_COMMITTEE];
+    if (userSaved) {
+      try {
+        const parsed = JSON.parse(userSaved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map<string, Committee>();
+          result.forEach(c => map.set(c.id, c));
+          parsed.forEach(c => map.set(c.id, c));
+          result = Array.from(map.values());
+        }
+      } catch {}
+    }
+    return result.length > 0 ? result : [DEFAULT_FALLBACK_COMMITTEE];
   });
 
   // Master events dataset containing all published & created events
   const [events, setEvents] = useState<Event[]>(() => {
     const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_EVENTS);
+    const userKey = getUserEventsKey(user?.id);
+    const userSaved = localStorage.getItem(userKey);
+    let result: Event[] = [];
     if (globalSaved) {
       try {
         const parsed = JSON.parse(globalSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
       } catch {}
     }
-    const userKey = getUserEventsKey(user?.id);
-    const userSaved = localStorage.getItem(userKey);
     if (userSaved) {
       try {
         const parsed = JSON.parse(userSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map<string, Event>();
+          result.forEach(e => map.set(e.id, e));
+          parsed.forEach(e => map.set(e.id, e));
+          result = Array.from(map.values());
+        }
       } catch {}
     }
-    return [DEFAULT_FALLBACK_EVENT];
+    return result.length > 0 ? result : [DEFAULT_FALLBACK_EVENT];
   });
 
   const [activeEventId, setActiveEventIdState] = useState<string>(() => {
@@ -308,11 +326,11 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Derived User-Scoped Workspace Data (STRICT DATA ISOLATION)
   const userCommittees = user
-    ? committees.filter(c => c.userId === user.id || c.id === user.committeeId)
+    ? committees.filter(c => !c.userId || c.userId === user.id || c.id === user.committeeId || c.id === 'comm_main')
     : committees;
 
   const userEvents = user
-    ? events.filter(e => e.userId === user.id || e.committeeId === user.committeeId)
+    ? events.filter(e => !e.userId || e.userId === user.id || e.committeeId === user.committeeId || e.committeeId === activeCommittee.id || e.committeeId === 'comm_main')
     : events;
 
   const activeCommittee = userCommittees[0] || (user ? {
@@ -625,6 +643,11 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         organizer_contact: created.organizerContact,
         theme_id: created.themeId,
         custom_accent_color: created.customAccentColor,
+        bg_svg_pattern: created.bgSvgPattern,
+        links: created.links || [],
+        announcements: created.announcements || [],
+        schedule: created.schedule || [],
+        rulebook: created.rulebook || [],
         status: created.status
       }, { onConflict: 'id' }).then(({ error }) => {
         if (error) console.error('Supabase create event error:', error);
@@ -641,16 +664,33 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return;
     }
 
+    let updatedTargetEvent: Event | undefined;
+
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
-      const list = exists ? prev : [{ ...DEFAULT_FALLBACK_EVENT, ...partial, id: eventId }, ...prev];
-      const updated = list.map(e => e.id === eventId ? {
-        ...e,
+      const list = exists ? prev : [{
+        ...DEFAULT_FALLBACK_EVENT,
         ...partial,
-        announcements: Array.isArray(partial.announcements) ? partial.announcements : (e.announcements || []),
-        links: Array.isArray(partial.links) ? partial.links : (e.links || []),
-        updatedAt: new Date().toISOString()
-      } : e);
+        id: eventId,
+        userId: user?.id || activeCommittee.userId || 'comm_main',
+        committeeId: activeCommittee.id || user?.committeeId || 'comm_main'
+      }, ...prev];
+      const updated = list.map(e => {
+        if (e.id === eventId) {
+          const merged: Event = {
+            ...e,
+            ...partial,
+            userId: e.userId || user?.id || activeCommittee.userId || 'comm_main',
+            committeeId: e.committeeId || activeCommittee.id || user?.committeeId || 'comm_main',
+            announcements: Array.isArray(partial.announcements) ? partial.announcements : (e.announcements || []),
+            links: Array.isArray(partial.links) ? partial.links : (e.links || []),
+            updatedAt: new Date().toISOString()
+          };
+          updatedTargetEvent = merged;
+          return merged;
+        }
+        return e;
+      });
       safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updated));
       safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
       return updated;
@@ -658,20 +698,33 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setActiveEventIdState(eventId);
 
     // Sync to Supabase DB if configured
-    if (isSupabaseConfigured() && user) {
-      const supabasePayload: any = {};
-      if (partial.title) supabasePayload.title = partial.title;
-      if (partial.tagline) supabasePayload.tagline = partial.tagline;
-      if (partial.description) supabasePayload.description = partial.description;
-      if (partial.posterUrl) supabasePayload.poster_url = partial.posterUrl;
-      if (partial.startDate) supabasePayload.start_date = partial.startDate;
-      if (partial.endDate) supabasePayload.end_date = partial.endDate;
-      if (partial.venue) supabasePayload.venue = partial.venue;
-      if (partial.primaryCtaText) supabasePayload.primary_cta_text = partial.primaryCtaText;
-      if (partial.primaryCtaUrl) supabasePayload.primary_cta_url = partial.primaryCtaUrl;
-      if (partial.themeId) supabasePayload.theme_id = partial.themeId;
-
-      supabase.from('events').update(supabasePayload).eq('id', eventId).eq('user_id', user.id).then(({ error }) => {
+    if (isSupabaseConfigured() && user && updatedTargetEvent) {
+      supabase.from('events').upsert({
+        id: updatedTargetEvent.id,
+        user_id: user.id,
+        committee_id: updatedTargetEvent.committeeId,
+        slug: updatedTargetEvent.slug,
+        title: updatedTargetEvent.title,
+        tagline: updatedTargetEvent.tagline,
+        description: updatedTargetEvent.description,
+        poster_url: updatedTargetEvent.posterUrl,
+        start_date: updatedTargetEvent.startDate,
+        end_date: updatedTargetEvent.endDate,
+        venue: updatedTargetEvent.venue,
+        address: updatedTargetEvent.address,
+        maps_url: updatedTargetEvent.mapsUrl,
+        primary_cta_text: updatedTargetEvent.primaryCtaText,
+        primary_cta_url: updatedTargetEvent.primaryCtaUrl,
+        organizer_contact: updatedTargetEvent.organizerContact,
+        theme_id: updatedTargetEvent.themeId,
+        custom_accent_color: updatedTargetEvent.customAccentColor,
+        bg_svg_pattern: updatedTargetEvent.bgSvgPattern,
+        links: updatedTargetEvent.links || [],
+        announcements: updatedTargetEvent.announcements || [],
+        schedule: updatedTargetEvent.schedule || [],
+        rulebook: updatedTargetEvent.rulebook || [],
+        status: updatedTargetEvent.status
+      }, { onConflict: 'id' }).then(({ error }) => {
         if (error) console.error('Supabase update event error:', error);
       });
     }
@@ -718,7 +771,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
       const list = exists ? prev : [{ ...DEFAULT_FALLBACK_EVENT, id: eventId }, ...prev];
-      return list.map(e => {
+      const updated = list.map(e => {
         if (e.id === eventId) {
           return {
             ...e,
@@ -728,6 +781,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         return e;
       });
+      safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      return updated;
     });
   };
 
@@ -735,7 +791,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
       const list = exists ? prev : [{ ...DEFAULT_FALLBACK_EVENT, id: eventId }, ...prev];
-      return list.map(e => {
+      const updated = list.map(e => {
         if (e.id === eventId) {
           return {
             ...e,
@@ -745,6 +801,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         return e;
       });
+      safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      return updated;
     });
   };
 
@@ -752,7 +811,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
       const list = exists ? prev : [{ ...DEFAULT_FALLBACK_EVENT, id: eventId }, ...prev];
-      return list.map(e => {
+      const updated = list.map(e => {
         if (e.id === eventId) {
           return {
             ...e,
@@ -762,6 +821,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         return e;
       });
+      safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      return updated;
     });
   };
 
@@ -769,7 +831,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
       const list = exists ? prev : [{ ...DEFAULT_FALLBACK_EVENT, id: eventId }, ...prev];
-      return list.map(e => {
+      const updated = list.map(e => {
         if (e.id === eventId) {
           const sorted = [...e.links].sort((a, b) => a.sortOrder - b.sortOrder);
           const index = sorted.findIndex(l => l.id === linkId);
@@ -790,6 +852,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         return e;
       });
+      safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      return updated;
     });
   };
 
@@ -803,7 +868,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
       const list = exists ? prev : [{ ...DEFAULT_FALLBACK_EVENT, id: eventId }, ...prev];
-      return list.map(e => {
+      const updated = list.map(e => {
         if (e.id === eventId) {
           return {
             ...e,
@@ -813,6 +878,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         return e;
       });
+      safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      return updated;
     });
   };
 
@@ -820,7 +888,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
       const list = exists ? prev : [{ ...DEFAULT_FALLBACK_EVENT, id: eventId }, ...prev];
-      return list.map(e => {
+      const updated = list.map(e => {
         if (e.id === eventId) {
           return {
             ...e,
@@ -830,6 +898,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         return e;
       });
+      safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      return updated;
     });
   };
 
@@ -837,7 +908,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
       const list = exists ? prev : [{ ...DEFAULT_FALLBACK_EVENT, id: eventId }, ...prev];
-      return list.map(e => {
+      const updated = list.map(e => {
         if (e.id === eventId) {
           return {
             ...e,
@@ -847,6 +918,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         return e;
       });
+      safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updated));
+      return updated;
     });
   };
 

@@ -76,11 +76,14 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
           organizerContact: data.organizer_contact || {},
           themeId: data.theme_id || 'midnight',
           customAccentColor: data.custom_accent_color || '#fafafa',
+          bgSvgPattern: data.bg_svg_pattern || '',
           status: data.status || 'published',
           createdAt: data.created_at || new Date().toISOString(),
           updatedAt: data.updated_at || new Date().toISOString(),
-          announcements: [],
-          links: [
+          announcements: Array.isArray(data.announcements) ? data.announcements : [],
+          schedule: Array.isArray(data.schedule) ? data.schedule : [],
+          rulebook: Array.isArray(data.rulebook) ? data.rulebook : [],
+          links: Array.isArray(data.links) && data.links.length > 0 ? data.links : [
             {
               id: `lnk_${data.id}_1`,
               title: data.primary_cta_text || 'Register Now',

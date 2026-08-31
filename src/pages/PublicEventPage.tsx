@@ -111,10 +111,37 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   if (encodedData) {
     try {
       const parsed = JSON.parse(decodeURIComponent(atob(encodedData)));
-      if (parsed && parsed.title) {
+      if (parsed && (parsed.title || parsed.t)) {
+        const rawLinks = parsed.links || parsed.l || [];
+        const parsedLinks = Array.isArray(rawLinks) ? rawLinks.map((l: any, idx: number) => ({
+          id: l.id || `lnk_dyn_${idx}`,
+          title: l.title || l.t || 'Link',
+          url: l.url || l.u || 'https://campuslink.app',
+          icon: l.icon || l.i || 'ExternalLink',
+          description: l.description || l.d || '',
+          type: l.type || l.tp || 'custom',
+          featured: Boolean(l.featured ?? l.f),
+          visible: true,
+          sortOrder: idx + 1,
+          clickCount: 0
+        })) : [];
+
         decodedEventFromUrl = {
           ...DEFAULT_FALLBACK_EVENT,
-          ...parsed
+          title: parsed.title || parsed.t || DEFAULT_FALLBACK_EVENT.title,
+          tagline: parsed.tagline || parsed.g || DEFAULT_FALLBACK_EVENT.tagline,
+          description: parsed.description || parsed.d || DEFAULT_FALLBACK_EVENT.description,
+          posterUrl: parsed.posterUrl || parsed.p || DEFAULT_FALLBACK_EVENT.posterUrl,
+          startDate: parsed.startDate || parsed.s || DEFAULT_FALLBACK_EVENT.startDate,
+          endDate: parsed.endDate || parsed.e || DEFAULT_FALLBACK_EVENT.endDate,
+          venue: parsed.venue || parsed.v || DEFAULT_FALLBACK_EVENT.venue,
+          address: parsed.address || parsed.a || DEFAULT_FALLBACK_EVENT.address,
+          primaryCtaText: parsed.primaryCtaText || parsed.c || DEFAULT_FALLBACK_EVENT.primaryCtaText,
+          primaryCtaUrl: parsed.primaryCtaUrl || parsed.u || DEFAULT_FALLBACK_EVENT.primaryCtaUrl,
+          themeId: parsed.themeId || parsed.th || DEFAULT_FALLBACK_EVENT.themeId,
+          customAccentColor: parsed.customAccentColor || parsed.ac || DEFAULT_FALLBACK_EVENT.customAccentColor,
+          bgSvgPattern: parsed.bgSvgPattern || parsed.bg || '',
+          links: parsedLinks.length > 0 ? parsedLinks : DEFAULT_FALLBACK_EVENT.links
         };
       }
     } catch (e) {}
@@ -244,7 +271,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
         <div
           className="absolute inset-0 pointer-events-none z-0 opacity-90 transition-all duration-300"
           style={{
-            backgroundImage: `url(${event.bgSvgPattern})`,
+            backgroundImage: `url("${event.bgSvgPattern.replace(/"/g, "'")}")`,
             backgroundSize: 'cover',
             backgroundPosition: 'center top',
             backgroundRepeat: 'no-repeat',

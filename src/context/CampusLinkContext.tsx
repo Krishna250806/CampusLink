@@ -324,9 +324,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     safeLocalStorageSet(STORAGE_KEY_ACTIVE_EVT, activeEventId);
   }, [activeEventId]);
 
-  // Derived User-Scoped Workspace Data (STRICT DATA ISOLATION)
+  // Derived User-Scoped Workspace Data (STRICT ACCOUNT ISOLATION)
   const userCommittees = user
-    ? committees.filter(c => !c.userId || c.userId === user.id || c.id === user.committeeId || c.id === 'comm_main')
+    ? committees.filter(c => c.userId === user.id || c.id === user.committeeId)
     : committees;
 
   const activeCommittee = userCommittees[0] || (user ? {
@@ -343,7 +343,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   } : DEFAULT_FALLBACK_COMMITTEE);
 
   const userEvents = user
-    ? events.filter(e => !e.userId || e.userId === user.id || e.committeeId === user.committeeId || (activeCommittee && e.committeeId === activeCommittee.id) || e.committeeId === 'comm_main')
+    ? events.filter(e => e.userId === user.id || (e.committeeId && e.committeeId === user.committeeId))
     : events;
 
   const activeEvent = userEvents.find(e => e.id === activeEventId)

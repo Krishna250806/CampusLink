@@ -25,7 +25,37 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   if (!isOpen || !event) return null;
 
   const targetSlug = event.slug || event.id || 'my-event';
-  const publicUrl = `${window.location.origin}/events/${targetSlug}`;
+
+  let payloadQuery = '';
+  try {
+    const minPayload = {
+      t: event.title,
+      g: event.tagline,
+      d: event.description,
+      p: event.posterUrl,
+      s: event.startDate,
+      e: event.endDate,
+      v: event.venue,
+      a: event.address,
+      c: event.primaryCtaText,
+      u: event.primaryCtaUrl,
+      th: event.themeId,
+      ac: event.customAccentColor,
+      bg: event.bgSvgPattern || '',
+      l: (event.links || []).map(link => ({
+        id: link.id,
+        t: link.title,
+        u: link.url,
+        i: link.icon,
+        d: link.description || '',
+        tp: link.type || 'custom',
+        f: link.featured ? 1 : 0
+      }))
+    };
+    payloadQuery = `?d=${btoa(encodeURIComponent(JSON.stringify(minPayload)))}`;
+  } catch (e) {}
+
+  const publicUrl = `${window.location.origin}/events/${targetSlug}${payloadQuery}`;
   const whatsappText = encodeURIComponent(
     `Check out ${event?.title || 'Event'} by ${committee?.name || 'Committee'}!\n"${event?.tagline || ''}"\n\nRegister & Details: ${publicUrl}`
   );

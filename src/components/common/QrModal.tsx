@@ -13,14 +13,6 @@ interface QrModalProps {
   committee?: Committee | null;
 }
 
-const safeBtoa = (str: string) => {
-  try {
-    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_match, p1) => String.fromCharCode(parseInt(p1, 16))));
-  } catch (e) {
-    return '';
-  }
-};
-
 export const QrModal: React.FC<QrModalProps> = ({
   isOpen,
   onClose,
@@ -36,43 +28,10 @@ export const QrModal: React.FC<QrModalProps> = ({
 
   const targetSlug = event.slug || event.id || 'my-event';
 
-  let payloadQuery = '';
-  try {
-    const minPayload = {
-      t: event.title,
-      g: event.tagline,
-      d: event.description,
-      p: event.posterUrl,
-      s: event.startDate,
-      e: event.endDate,
-      v: event.venue,
-      a: event.address,
-      c: event.primaryCtaText,
-      u: event.primaryCtaUrl,
-      th: event.themeId,
-      ac: event.customAccentColor,
-      bg: event.bgSvgPattern && event.bgSvgPattern.length < 100 ? event.bgSvgPattern : '',
-      cn: committee.name || '',
-      ch: committee.handle || '',
-      cl: committee.logoUrl || '',
-      l: (event.links || []).map(link => ({
-        id: link.id,
-        t: link.title,
-        u: link.url,
-        i: link.icon,
-        d: link.description || '',
-        tp: link.type || 'custom',
-        f: link.featured ? 1 : 0
-      }))
-    };
-    const encoded = safeBtoa(JSON.stringify(minPayload));
-    if (encoded) payloadQuery = `?d=${encoded}`;
-  } catch (e) {}
-
   // Clean, high-contrast, instant-scannable public URL for camera scanners
   const publicUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/events/${targetSlug}${payloadQuery}`
-    : `https://campuslink.app/events/${targetSlug}${payloadQuery}`;
+    ? `${window.location.origin}/events/${targetSlug}`
+    : `https://campuslink.app/events/${targetSlug}`;
 
   useEffect(() => {
     if (!isOpen) return;

@@ -11,14 +11,6 @@ interface ShareModalProps {
   committee: Committee;
 }
 
-const safeBtoa = (str: string) => {
-  try {
-    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_match, p1) => String.fromCharCode(parseInt(p1, 16))));
-  } catch (e) {
-    return '';
-  }
-};
-
 export const ShareModal: React.FC<ShareModalProps> = ({
   isOpen,
   onClose,
@@ -33,41 +25,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   if (!isOpen || !event) return null;
 
   const targetSlug = event.slug || event.id || 'my-event';
-
-  let payloadQuery = '';
-  try {
-    const minPayload = {
-      t: event.title,
-      g: event.tagline,
-      d: event.description,
-      p: event.posterUrl,
-      s: event.startDate,
-      e: event.endDate,
-      v: event.venue,
-      a: event.address,
-      c: event.primaryCtaText,
-      u: event.primaryCtaUrl,
-      th: event.themeId,
-      ac: event.customAccentColor,
-      bg: event.bgSvgPattern && event.bgSvgPattern.length < 100 ? event.bgSvgPattern : '',
-      cn: committee?.name || '',
-      ch: committee?.handle || '',
-      cl: committee?.logoUrl || '',
-      l: (event.links || []).map(link => ({
-        id: link.id,
-        t: link.title,
-        u: link.url,
-        i: link.icon,
-        d: link.description || '',
-        tp: link.type || 'custom',
-        f: link.featured ? 1 : 0
-      }))
-    };
-    const encoded = safeBtoa(JSON.stringify(minPayload));
-    if (encoded) payloadQuery = `?d=${encoded}`;
-  } catch (e) {}
-
-  const publicUrl = `${window.location.origin}/events/${targetSlug}${payloadQuery}`;
+  const publicUrl = `${window.location.origin}/events/${targetSlug}`;
   const whatsappText = encodeURIComponent(
     `Check out ${event?.title || 'Event'} by ${committee?.name || 'Committee'}!\n"${event?.tagline || ''}"\n\nRegister & Details: ${publicUrl}`
   );

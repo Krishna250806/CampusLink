@@ -139,11 +139,11 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     }
   }
 
-  // Match Event cleanly (prefers exact slug match, remote fetch, decoded URL payload, then default)
+  // Match Event cleanly (prefers live builder preview, fresh remote Supabase fetch, decoded URL payload, local cache, then default)
   const event: Event = customEvent
-    || (targetSlug ? events.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) : undefined)
     || remoteEvent
     || decodedEventFromUrl
+    || (targetSlug ? events.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) : undefined)
     || (targetSlug ? undefined : events[0])
     || DEFAULT_FALLBACK_EVENT;
 

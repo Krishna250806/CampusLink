@@ -698,10 +698,10 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setActiveEventIdState(eventId);
 
     // Sync to Supabase DB if configured
-    if (isSupabaseConfigured() && user && updatedTargetEvent) {
+    if (isSupabaseConfigured() && updatedTargetEvent) {
       supabase.from('events').upsert({
         id: updatedTargetEvent.id,
-        user_id: user.id,
+        user_id: user?.id || updatedTargetEvent.userId || 'comm_main',
         committee_id: updatedTargetEvent.committeeId,
         slug: updatedTargetEvent.slug,
         title: updatedTargetEvent.title,

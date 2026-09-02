@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Modal } from './Modal';
 import type { Event, Committee } from '../../types/campuslink';
-import { Download, Printer, Copy, Check, QrCode, Wifi, Settings2 } from 'lucide-react';
+import { Download, Printer, Copy, Check, QrCode, Wifi, Settings2, Zap, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_FALLBACK_COMMITTEE, DEFAULT_FALLBACK_EVENT } from '../../context/CampusLinkContext';
 import { encodeEventPayload } from '../../utils/urlPayload';
@@ -26,6 +26,7 @@ export const QrModal: React.FC<QrModalProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [frameStyle, setFrameStyle] = useState<'minimal' | 'poster' | 'dark'>('poster');
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [qrMode, setQrMode] = useState<'fast' | 'payload'>('fast');
 
   // Custom Base Host / Domain setting (remembered in localStorage)
   const defaultOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
@@ -39,7 +40,7 @@ export const QrModal: React.FC<QrModalProps> = ({
 
   const targetSlug = event.slug || event.id || 'my-event';
   const encodedPayload = encodeEventPayload(event, committee);
-  const payloadQuery = encodedPayload ? `?d=${encodedPayload}` : '';
+  const payloadQuery = (qrMode === 'payload' && encodedPayload) ? `?d=${encodedPayload}` : '';
 
   // Clean base URL without trailing slashes
   const cleanBaseHost = (customHost.trim() || defaultOrigin).replace(/\/+$/, '');
@@ -69,7 +70,7 @@ export const QrModal: React.FC<QrModalProps> = ({
         const lightColor = frameStyle === 'dark' ? '#090d16' : '#ffffff';
 
         const opts = {
-          width: 400,
+          width: 600,
           margin: 4,
           color: { dark: darkColor, light: lightColor },
           errorCorrectionLevel: 'M' as const
@@ -77,7 +78,7 @@ export const QrModal: React.FC<QrModalProps> = ({
 
         let generatedUrl = '';
 
-        // Engine 1: Canvas PNG Data URL
+        // Engine 1: High-Res Canvas PNG Data URL
         if (typeof toDataURL === 'function') {
           try {
             generatedUrl = await toDataURL(publicUrl, opts);
@@ -105,7 +106,7 @@ export const QrModal: React.FC<QrModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, publicUrl, frameStyle]);
+  }, [isOpen, publicUrl, frameStyle, qrMode]);
 
   if (!isOpen) return null;
 
@@ -133,35 +134,64 @@ export const QrModal: React.FC<QrModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Print-Ready Event QR Code" maxWidth="md">
       <div className="space-y-5 text-center">
         
-        {/* Frame Style & Settings Toggle Header */}
-        <div className="flex items-center justify-between gap-2 p-1.5 bg-slate-950/80 rounded-2xl border border-white/10 shadow-inner">
-          <div className="flex justify-center gap-1.5 flex-1">
-            {(['poster', 'minimal', 'dark'] as const).map(style => {
-              const isActive = frameStyle === style;
-              const styleLabel = style === 'poster' ? 'Poster Frame' : style === 'minimal' ? 'Minimal White' : 'Cyber Dark';
-              return (
-                <button
-                  key={style}
-                  onClick={() => setFrameStyle(style)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    isActive ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {styleLabel}
-                </button>
-              );
-            })}
+        {/* QR Mode & Frame Style Selectors */}
+        <div className="space-y-2">
+          {/* Fast Scan vs Offline Payload Mode Toggle */}
+          <div className="flex justify-center gap-2 p-1 bg-slate-950/80 rounded-2xl border border-white/10 shadow-inner max-w-sm mx-auto">
+            <button
+              onClick={() => setQrMode('fast')}
+              className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                qrMode === 'fast'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Instant camera scan with minimal QR density"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300" /> Instant Camera Scan
+            </button>
+            <button
+              onClick={() => setQrMode('payload')}
+              className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                qrMode === 'payload'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Includes full Base64 offline payload in URL"
+            >
+              <Package className="w-3.5 h-3.5" /> Full Offline Payload
+            </button>
           </div>
 
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
-              showSettings ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-neutral-900 text-slate-400 border-white/10 hover:text-white'
-            }`}
-            title="Configure Target Host / IP"
-          >
-            <Settings2 className="w-4 h-4" />
-          </button>
+          {/* Frame Style & Settings Header */}
+          <div className="flex items-center justify-between gap-2 p-1.5 bg-slate-950/80 rounded-2xl border border-white/10 shadow-inner">
+            <div className="flex justify-center gap-1.5 flex-1">
+              {(['poster', 'minimal', 'dark'] as const).map(style => {
+                const isActive = frameStyle === style;
+                const styleLabel = style === 'poster' ? 'Poster Frame' : style === 'minimal' ? 'Minimal White' : 'Cyber Dark';
+                return (
+                  <button
+                    key={style}
+                    onClick={() => setFrameStyle(style)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                      isActive ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {styleLabel}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                showSettings ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-neutral-900 text-slate-400 border-white/10 hover:text-white'
+              }`}
+              title="Configure Target Host / IP"
+            >
+              <Settings2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Target Host / IP Configuration Panel */}
@@ -239,7 +269,7 @@ export const QrModal: React.FC<QrModalProps> = ({
           {/* QR Code Canvas/Image */}
           <div className="inline-block p-4 bg-white rounded-2xl shadow-inner border border-slate-200/60">
             {dataUrl ? (
-              <img src={dataUrl} alt="CampusLink Event QR" className="w-56 h-56 mx-auto rounded-xl" />
+              <img src={dataUrl} alt="CampusLink Event QR" className="w-56 h-56 mx-auto rounded-xl image-rendering-pixelated shadow-sm" />
             ) : (
               <div className="w-56 h-56 flex items-center justify-center text-slate-400 font-mono text-xs">Generating QR...</div>
             )}

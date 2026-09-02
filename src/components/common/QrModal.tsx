@@ -5,6 +5,7 @@ import type { Event, Committee } from '../../types/campuslink';
 import { Download, Printer, Copy, Check, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_FALLBACK_COMMITTEE, DEFAULT_FALLBACK_EVENT } from '../../context/CampusLinkContext';
+import { encodeEventPayload } from '../../utils/urlPayload';
 
 interface QrModalProps {
   isOpen: boolean;
@@ -28,40 +29,8 @@ export const QrModal: React.FC<QrModalProps> = ({
 
   const targetSlug = event.slug || event.id || 'my-event';
 
-  let payloadQuery = '';
-  try {
-    const compactPayload = {
-      t: event.title,
-      g: event.tagline,
-      d: (event.description || '').slice(0, 200),
-      p: event.posterUrl && !event.posterUrl.startsWith('data:') ? event.posterUrl : '',
-      s: event.startDate,
-      e: event.endDate,
-      v: event.venue,
-      a: event.address,
-      c: event.primaryCtaText,
-      u: event.primaryCtaUrl,
-      th: event.themeId,
-      ac: event.customAccentColor,
-      bg: event.bgSvgPattern && event.bgSvgPattern.length < 100 ? event.bgSvgPattern : '',
-      cn: committee?.name || '',
-      ch: committee?.handle || '',
-      cl: committee?.logoUrl && !committee.logoUrl.startsWith('data:') ? committee.logoUrl : '',
-      l: (event.links || []).slice(0, 8).map(link => ({
-        t: link.title,
-        u: link.url,
-        i: link.icon,
-        d: (link.description || '').slice(0, 60),
-        tp: link.type || 'custom',
-        f: link.featured ? 1 : 0
-      }))
-    };
-    const jsonStr = JSON.stringify(compactPayload);
-    const encoded = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (_m, p1) => String.fromCharCode(parseInt(p1, 16))));
-    if (encoded && encoded.length < 1200) {
-      payloadQuery = `?d=${encoded}`;
-    }
-  } catch (e) {}
+  const encodedPayload = encodeEventPayload(event, committee);
+  const payloadQuery = encodedPayload ? `?d=${encodedPayload}` : '';
 
   // Clean, high-contrast, instant-scannable public URL for camera scanners
   const publicUrl = typeof window !== 'undefined'
@@ -75,7 +44,7 @@ export const QrModal: React.FC<QrModalProps> = ({
 
     const generateQr = async () => {
       try {
-        const qrFn = (QRCode as any)?.toDataURL || (QRCode as any)?.default?.toDataURL;
+        const qrFn = (QRCode as any)?.toDataURL || (QRCode as any)?.default?.toDataURL || QRCode;
         if (typeof qrFn === 'function') {
           const url = await qrFn(publicUrl, {
             width: 400,
@@ -84,7 +53,7 @@ export const QrModal: React.FC<QrModalProps> = ({
               dark: frameStyle === 'dark' ? '#00f0ff' : '#000000',
               light: frameStyle === 'dark' ? '#090d16' : '#ffffff'
             },
-            errorCorrectionLevel: 'H'
+            errorCorrectionLevel: 'M'
           });
           if (isMounted) setDataUrl(url);
         } else {

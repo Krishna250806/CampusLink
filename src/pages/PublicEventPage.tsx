@@ -8,6 +8,7 @@ import { ShareModal } from '../components/common/ShareModal';
 import { Modal } from '../components/common/Modal';
 import type { EventLink, Announcement, ScheduleItem, RulebookSection, Event, Committee } from '../types/campuslink';
 import { resolveSvgPattern } from '../utils/svgBackgrounds';
+import { decodeEventPayload } from '../utils/urlPayload';
 import {
   Calendar,
   MapPin,
@@ -110,49 +111,32 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   const encodedData = queryParams.get('d');
   let decodedEventFromUrl: Event | null = null;
   if (encodedData) {
-    try {
-      const binary = atob(encodedData);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const jsonStr = new TextDecoder().decode(bytes);
-      const parsed = JSON.parse(jsonStr);
-      if (parsed && (parsed.title || parsed.t)) {
-        const rawLinks = parsed.links || parsed.l || [];
-        const parsedLinks = Array.isArray(rawLinks) ? rawLinks.map((l: any, idx: number) => ({
-          id: l.id || `lnk_dyn_${idx}`,
-          title: l.title || l.t || 'Link',
-          url: l.url || l.u || 'https://campuslink.app',
-          icon: l.icon || l.i || 'ExternalLink',
-          description: l.description || l.d || '',
-          type: l.type || l.tp || 'custom',
-          featured: Boolean(l.featured ?? l.f),
-          visible: true,
-          sortOrder: idx + 1,
-          clickCount: 0
-        })) : [];
-
-        decodedEventFromUrl = {
-          ...DEFAULT_FALLBACK_EVENT,
-          title: parsed.title || parsed.t || DEFAULT_FALLBACK_EVENT.title,
-          tagline: parsed.tagline || parsed.g || DEFAULT_FALLBACK_EVENT.tagline,
-          description: parsed.description || parsed.d || DEFAULT_FALLBACK_EVENT.description,
-          posterUrl: parsed.posterUrl || parsed.p || DEFAULT_FALLBACK_EVENT.posterUrl,
-          startDate: parsed.startDate || parsed.s || DEFAULT_FALLBACK_EVENT.startDate,
-          endDate: parsed.endDate || parsed.e || DEFAULT_FALLBACK_EVENT.endDate,
-          venue: parsed.venue || parsed.v || DEFAULT_FALLBACK_EVENT.venue,
-          address: parsed.address || parsed.a || DEFAULT_FALLBACK_EVENT.address,
-          primaryCtaText: parsed.primaryCtaText || parsed.c || DEFAULT_FALLBACK_EVENT.primaryCtaText,
-          primaryCtaUrl: parsed.primaryCtaUrl || parsed.u || DEFAULT_FALLBACK_EVENT.primaryCtaUrl,
-          themeId: parsed.themeId || parsed.th || DEFAULT_FALLBACK_EVENT.themeId,
-          customAccentColor: parsed.customAccentColor || parsed.ac || DEFAULT_FALLBACK_EVENT.customAccentColor,
-          bgSvgPattern: parsed.bgSvgPattern || parsed.bg || '',
-          committeeName: parsed.committeeName || parsed.cn || '',
-          committeeHandle: parsed.committeeHandle || parsed.ch || '',
-          committeeLogoUrl: parsed.committeeLogoUrl || parsed.cl || '',
-          links: parsedLinks.length > 0 ? parsedLinks : DEFAULT_FALLBACK_EVENT.links
-        };
-      }
-    } catch (e) {}
+    const decoded = decodeEventPayload(encodedData);
+    if (decoded && decoded.event) {
+      decodedEventFromUrl = {
+        ...DEFAULT_FALLBACK_EVENT,
+        id: targetSlug || DEFAULT_FALLBACK_EVENT.id,
+        slug: targetSlug || DEFAULT_FALLBACK_EVENT.slug,
+        title: decoded.event.title || DEFAULT_FALLBACK_EVENT.title,
+        tagline: decoded.event.tagline || DEFAULT_FALLBACK_EVENT.tagline,
+        description: decoded.event.description || DEFAULT_FALLBACK_EVENT.description,
+        posterUrl: decoded.event.posterUrl || DEFAULT_FALLBACK_EVENT.posterUrl,
+        startDate: decoded.event.startDate || DEFAULT_FALLBACK_EVENT.startDate,
+        endDate: decoded.event.endDate || DEFAULT_FALLBACK_EVENT.endDate,
+        venue: decoded.event.venue || DEFAULT_FALLBACK_EVENT.venue,
+        address: decoded.event.address || DEFAULT_FALLBACK_EVENT.address,
+        mapsUrl: decoded.event.mapsUrl || DEFAULT_FALLBACK_EVENT.mapsUrl,
+        primaryCtaText: decoded.event.primaryCtaText || DEFAULT_FALLBACK_EVENT.primaryCtaText,
+        primaryCtaUrl: decoded.event.primaryCtaUrl || DEFAULT_FALLBACK_EVENT.primaryCtaUrl,
+        themeId: (decoded.event.themeId as any) || DEFAULT_FALLBACK_EVENT.themeId,
+        customAccentColor: decoded.event.customAccentColor || DEFAULT_FALLBACK_EVENT.customAccentColor,
+        bgSvgPattern: decoded.event.bgSvgPattern || '',
+        committeeName: decoded.committee?.name || '',
+        committeeHandle: decoded.committee?.handle || '',
+        committeeLogoUrl: decoded.committee?.logoUrl || '',
+        links: (decoded.event.links && decoded.event.links.length > 0) ? (decoded.event.links as EventLink[]) : DEFAULT_FALLBACK_EVENT.links
+      } as any;
+    }
   }
 
   // Match Event cleanly (prefers exact slug match, remote fetch, decoded URL payload, then default)

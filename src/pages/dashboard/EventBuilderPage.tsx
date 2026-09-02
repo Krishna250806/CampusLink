@@ -20,6 +20,7 @@ import {
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { SVG_BACKGROUND_PRESETS } from '../../utils/svgBackgrounds';
+import { isoToDatetimeLocal, datetimeLocalToIso } from '../../utils/dateUtils';
 
 const THEMES_CONFIG: { id: ThemeId; name: string; desc: string; bgClass: string }[] = [
   { id: 'popbrutalist', name: 'Neo-Brutalist Pop', desc: 'Vibrant yellow & hard drop shadows', bgClass: 'bg-yellow-400 border-2 border-black text-black font-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]' },
@@ -54,8 +55,8 @@ export const EventBuilderPage: React.FC = () => {
         tagline: "Build. Connect. Innovate.",
         description: "Annual campus festival bringing together top student developers, artists, and creators.",
         posterUrl: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000",
-        startDate: new Date(Date.now() + 86400000 * 14).toISOString().slice(0, 16),
-        endDate: new Date(Date.now() + 86400000 * 16).toISOString().slice(0, 16),
+        startDate: new Date(Date.now() + 86400000 * 14).toISOString(),
+        endDate: new Date(Date.now() + 86400000 * 16).toISOString(),
         venue: "Main Auditorium & Quadrangle",
         address: "Campus Gate 1, XYZ University",
         mapsUrl: "https://maps.google.com",
@@ -308,8 +309,8 @@ export const EventBuilderPage: React.FC = () => {
                     <label className="block text-xs font-bold text-slate-300 mb-1.5">Start Date & Time</label>
                     <input
                       type="datetime-local"
-                      value={draft.startDate ? draft.startDate.slice(0, 16) : ''}
-                      onChange={e => updateField('startDate', new Date(e.target.value).toISOString())}
+                      value={isoToDatetimeLocal(draft.startDate)}
+                      onChange={e => updateField('startDate', datetimeLocalToIso(e.target.value, 14))}
                       className="w-full px-3.5 py-3 bg-neutral-950 border border-white/10 rounded-xl text-xs font-mono text-slate-100 focus:outline-none focus:border-zinc-400"
                     />
                   </div>
@@ -318,8 +319,8 @@ export const EventBuilderPage: React.FC = () => {
                     <label className="block text-xs font-bold text-slate-300 mb-1.5">End Date & Time</label>
                     <input
                       type="datetime-local"
-                      value={draft.endDate ? draft.endDate.slice(0, 16) : ''}
-                      onChange={e => updateField('endDate', new Date(e.target.value).toISOString())}
+                      value={isoToDatetimeLocal(draft.endDate)}
+                      onChange={e => updateField('endDate', datetimeLocalToIso(e.target.value, 16))}
                       className="w-full px-3.5 py-3 bg-neutral-950 border border-white/10 rounded-xl text-xs font-mono text-slate-100 focus:outline-none focus:border-zinc-400"
                     />
                   </div>

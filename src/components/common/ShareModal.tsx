@@ -3,6 +3,7 @@ import { Modal } from './Modal';
 import type { Event, Committee } from '../../types/campuslink';
 import { Copy, Check, MessageCircle, ShieldAlert, Globe } from 'lucide-react';
 import { toast } from 'sonner';
+import { encodeEventPayload } from '../../utils/urlPayload';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -26,40 +27,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   const targetSlug = event.slug || event.id || 'my-event';
 
-  let payloadQuery = '';
-  try {
-    const compactPayload = {
-      t: event.title,
-      g: event.tagline,
-      d: (event.description || '').slice(0, 200),
-      p: event.posterUrl && !event.posterUrl.startsWith('data:') ? event.posterUrl : '',
-      s: event.startDate,
-      e: event.endDate,
-      v: event.venue,
-      a: event.address,
-      c: event.primaryCtaText,
-      u: event.primaryCtaUrl,
-      th: event.themeId,
-      ac: event.customAccentColor,
-      bg: event.bgSvgPattern && event.bgSvgPattern.length < 100 ? event.bgSvgPattern : '',
-      cn: committee?.name || '',
-      ch: committee?.handle || '',
-      cl: committee?.logoUrl && !committee.logoUrl.startsWith('data:') ? committee.logoUrl : '',
-      l: (event.links || []).slice(0, 8).map(link => ({
-        t: link.title,
-        u: link.url,
-        i: link.icon,
-        d: (link.description || '').slice(0, 60),
-        tp: link.type || 'custom',
-        f: link.featured ? 1 : 0
-      }))
-    };
-    const jsonStr = JSON.stringify(compactPayload);
-    const encoded = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (_m, p1) => String.fromCharCode(parseInt(p1, 16))));
-    if (encoded && encoded.length < 1200) {
-      payloadQuery = `?d=${encoded}`;
-    }
-  } catch (e) {}
+  const encodedPayload = encodeEventPayload(event, committee);
+  const payloadQuery = encodedPayload ? `?d=${encodedPayload}` : '';
 
   const publicUrl = `${window.location.origin}/events/${targetSlug}${payloadQuery}`;
   const whatsappText = encodeURIComponent(

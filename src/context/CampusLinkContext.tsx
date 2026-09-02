@@ -949,14 +949,41 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Committee Methods
   const updateCommittee = (committeeId: string, partial: Partial<Committee>) => {
+    let updatedTargetComm: Committee | undefined;
+
     setCommittees(prev => {
       const exists = prev.some(c => c.id === committeeId);
-      if (!exists) {
-        const newComm = { ...activeCommittee, ...partial, id: committeeId };
-        return [newComm, ...prev];
-      }
-      return prev.map(c => c.id === committeeId ? { ...c, ...partial } : c);
+      const updated = exists
+        ? prev.map(c => {
+            if (c.id === committeeId) {
+              const merged = { ...c, ...partial };
+              updatedTargetComm = merged;
+              return merged;
+            }
+            return c;
+          })
+        : [{ ...activeCommittee, ...partial, id: committeeId }, ...prev];
+
+      safeLocalStorageSet(getUserCommitteesKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(updated));
+      return updated;
     });
+
+    if (isSupabaseConfigured() && updatedTargetComm) {
+      supabase.from('committees').upsert({
+        id: committeeId,
+        user_id: user?.id || updatedTargetComm.userId || 'comm_main',
+        name: updatedTargetComm.name,
+        handle: updatedTargetComm.handle,
+        tagline: updatedTargetComm.tagline,
+        logo_url: updatedTargetComm.logoUrl,
+        cover_url: updatedTargetComm.coverUrl,
+        description: updatedTargetComm.description,
+        socials: updatedTargetComm.socials || {}
+      }, { onConflict: 'id' }).then(({ error }) => {
+        if (error) console.error('Supabase update committee error:', error);
+      });
+    }
   };
 
   // Visitor Tracking / Analytics

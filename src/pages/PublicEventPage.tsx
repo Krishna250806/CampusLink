@@ -163,7 +163,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     id: matchedCommittee?.id || event?.committeeId || DEFAULT_FALLBACK_COMMITTEE.id,
     handle: (event as any)?.committeeHandle || matchedCommittee?.handle || (handle && handle !== 'events' ? handle : DEFAULT_FALLBACK_COMMITTEE.handle),
     name: (event as any)?.committeeName || matchedCommittee?.name || DEFAULT_FALLBACK_COMMITTEE.name,
-    logoUrl: (event as any)?.committeeLogoUrl || matchedCommittee?.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl,
+    logoUrl: matchedCommittee?.logoUrl || (event as any)?.committeeLogoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl,
     tagline: matchedCommittee?.tagline || DEFAULT_FALLBACK_COMMITTEE.tagline,
     description: matchedCommittee?.description || DEFAULT_FALLBACK_COMMITTEE.description,
     socials: matchedCommittee?.socials || DEFAULT_FALLBACK_COMMITTEE.socials,

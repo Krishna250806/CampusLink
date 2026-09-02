@@ -38,7 +38,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   customEvent
 }) => {
   const { handle, eventSlug } = useParams<{ handle?: string; eventSlug?: string }>();
-  const { committees, events, allCommittees, allEvents, activeCommittee, recordPageView, recordLinkClick, recordRegClick } = useCampusLink();
+  const { committees, events, allCommittees, allEvents, activeCommittee, activeEvent, user, recordPageView, recordLinkClick, recordRegClick } = useCampusLink();
 
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -148,20 +148,39 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     }
   }
 
-  // Find local context matching event (by slug, by ID, or by decoded URL payload ID)
+  // Auto-refetch trigger on visibility / focus / periodic interval so open tabs stay 100% synced with dashboard edits
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const handleUpdate = () => setTick(t => t + 1);
+    window.addEventListener('storage', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+    document.addEventListener('visibilitychange', handleUpdate);
+    const timer = setInterval(handleUpdate, 3000);
+    return () => {
+      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+      document.removeEventListener('visibilitychange', handleUpdate);
+      clearInterval(timer);
+    };
+  }, []);
+
+  // Find local context matching event (by slug, by ID, by decoded payload ID, or active event)
   const localEvent = targetSlug
     ? (
         eventList.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) ||
-        (decodedEventFromUrl?.id ? eventList.find(e => e.id === decodedEventFromUrl.id) : undefined)
+        (decodedEventFromUrl?.id ? eventList.find(e => e.id === decodedEventFromUrl.id) : undefined) ||
+        (decodedEventFromUrl?.title ? eventList.find(e => e.title?.toLowerCase() === decodedEventFromUrl.title?.toLowerCase()) : undefined) ||
+        eventList.find(e => e.committeeId === activeCommittee?.id || (e.userId && user?.id && e.userId === user.id)) ||
+        eventList[0]
       )
-    : undefined;
+    : (eventList.find(e => e.id === activeEvent?.id) || eventList[0]);
 
   // Match Event cleanly (prefers live builder preview > fresh local storage edit > fresh remote Supabase fetch > decoded URL payload > fallback)
   const event: Event = customEvent
     || localEvent
     || remoteEvent
     || decodedEventFromUrl
-    || (targetSlug ? undefined : eventList[0])
+    || eventList[0]
     || DEFAULT_FALLBACK_EVENT;
 
   // Match Committee based on resolved event, handle, or active workspace committee
@@ -172,13 +191,18 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     || (activeCommittee?.id === event?.committeeId ? activeCommittee : undefined)
     || committeeList.find(c => c.id !== 'comm_main')
     || activeCommittee
-    || committeeList[0];
+    || committeeList[0]
+    || DEFAULT_FALLBACK_COMMITTEE;
 
-  const committeeLogo = matchedCommittee?.logoUrl
+  const rawLogo = matchedCommittee?.logoUrl
     || (event as any)?.committeeLogoUrl
     || (event as any)?.committee?.logoUrl
     || (customEvent as any)?.committee?.logoUrl
     || DEFAULT_FALLBACK_COMMITTEE.logoUrl;
+
+  const committeeLogo = (rawLogo && rawLogo.startsWith('http'))
+    ? `${rawLogo}${rawLogo.includes('?') ? '&' : '?'}v=${matchedCommittee?.updatedAt || Date.now()}`
+    : (rawLogo || DEFAULT_FALLBACK_COMMITTEE.logoUrl);
 
   const committeeName = matchedCommittee?.name
     || (event as any)?.committeeName

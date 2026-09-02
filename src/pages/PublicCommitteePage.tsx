@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useCampusLink } from '../context/CampusLinkContext';
+import { useCampusLink, DEFAULT_FALLBACK_COMMITTEE } from '../context/CampusLinkContext';
 import { ShieldCheck, Calendar, ExternalLink, ArrowLeft, Sparkles, Globe, MessageSquare, Share2, Search } from 'lucide-react';
 
 export const PublicCommitteePage: React.FC = () => {
@@ -8,6 +8,22 @@ export const PublicCommitteePage: React.FC = () => {
   const { committees, events, allCommittees, allEvents, activeCommittee } = useCampusLink();
   const [activeTab, setActiveTab] = useState<'events' | 'about'>('events');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Auto-refetch trigger on visibility / focus / periodic interval so open tabs stay 100% synced with dashboard edits
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const handleUpdate = () => setTick(t => t + 1);
+    window.addEventListener('storage', handleUpdate);
+    window.addEventListener('focus', handleUpdate);
+    document.addEventListener('visibilitychange', handleUpdate);
+    const timer = setInterval(handleUpdate, 3000);
+    return () => {
+      window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+      document.removeEventListener('visibilitychange', handleUpdate);
+      clearInterval(timer);
+    };
+  }, []);
 
   const targetHandle = (handle || '').toLowerCase().replace(/^@/, '');
   const committeeList = allCommittees && allCommittees.length > 0 ? allCommittees : committees;
@@ -17,7 +33,13 @@ export const PublicCommitteePage: React.FC = () => {
     || (activeCommittee && activeCommittee.handle.toLowerCase() === targetHandle ? activeCommittee : undefined)
     || committeeList.find(c => c.id !== 'comm_main')
     || activeCommittee
-    || committeeList[0];
+    || committeeList[0]
+    || DEFAULT_FALLBACK_COMMITTEE;
+
+  const rawLogo = committee?.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl;
+  const committeeLogo = (rawLogo && rawLogo.startsWith('http'))
+    ? `${rawLogo}${rawLogo.includes('?') ? '&' : '?'}v=${committee?.updatedAt || Date.now()}`
+    : (rawLogo || DEFAULT_FALLBACK_COMMITTEE.logoUrl);
 
   const committeeEvents = eventList.filter(e => 
     (e.committeeId === committee.id || (committee.handle && e.slug?.startsWith(committee.handle))) && 
@@ -51,10 +73,10 @@ export const PublicCommitteePage: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
             <div className="relative">
               <img
-                src={committee.logoUrl}
+                src={committeeLogo}
                 alt={committee.name}
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:4px"><rect width="18" height="18" x="3" y="3" rx="4"/><path d="m9 12 2 2 4-4"/></svg>';
+                  (e.target as HTMLImageElement).src = DEFAULT_FALLBACK_COMMITTEE.logoUrl;
                 }}
                 className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover border-2 border-white/20 shadow-2xl bg-neutral-900"
               />

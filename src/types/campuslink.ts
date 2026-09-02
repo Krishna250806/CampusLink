@@ -119,6 +119,7 @@ export interface Committee {
   };
   members: TeamMember[];
   verified?: boolean;
+  updatedAt?: string;
 }
 
 export interface User {

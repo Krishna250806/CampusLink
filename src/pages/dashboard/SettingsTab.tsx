@@ -145,7 +145,14 @@ export const SettingsTab: React.FC = () => {
         <div>
           <label className="block text-xs font-semibold text-slate-300 mb-1.5">Committee Logo Image</label>
           <div className="flex items-center gap-3">
-            <img src={logoUrl} alt="Logo preview" className="w-14 h-14 rounded-2xl object-cover border border-white/20 flex-shrink-0 bg-black" />
+            <img
+              src={logoUrl || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:24px;border-radius:24px"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>'}
+              alt="Logo preview"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:24px;border-radius:24px"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>';
+              }}
+              className="w-14 h-14 rounded-2xl object-cover border border-white/20 flex-shrink-0 bg-black"
+            />
             <div className="flex-1 space-y-2">
               <input
                 type="text"

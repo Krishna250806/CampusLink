@@ -4,6 +4,7 @@ import { useCampusLink } from '../../context/CampusLinkContext';
 import type { Event, ThemeId, EventLink } from '../../types/campuslink';
 import { PhoneMockup } from '../../components/phone/PhoneMockup';
 import { PublicEventPage } from '../PublicEventPage';
+import { compressImage } from '../../utils/imageCompressor';
 import {
   Rocket,
   ChevronRight,
@@ -99,17 +100,24 @@ export const EventBuilderPage: React.FC = () => {
   };
 
   // Local File Upload Handler for Event Poster
-  const handlePosterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePosterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          updateField('posterUrl', event.target.result as string);
-          toast.success('Local poster image uploaded successfully!');
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file, 800, 800);
+        updateField('posterUrl', compressed);
+        toast.success('Event poster uploaded & optimized successfully!');
+      } catch (err) {
+        console.error('Poster compression failed:', err);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            updateField('posterUrl', event.target.result as string);
+            toast.success('Local poster image uploaded!');
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

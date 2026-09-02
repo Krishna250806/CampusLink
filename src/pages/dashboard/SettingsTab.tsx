@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCampusLink } from '../../context/CampusLinkContext';
 import { Save, AlertCircle, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { compressImage } from '../../utils/imageCompressor';
 
 const RESERVED_HANDLES = ['admin', 'api', 'dashboard', 'login', 'signup', 'auth', 'settings', 'help', 'app'];
 
@@ -20,17 +21,29 @@ export const SettingsTab: React.FC = () => {
   const [handleError, setHandleError] = useState('');
   const [saved, setSaved] = useState(false);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (url: string) => void,
+    maxW = 400,
+    maxH = 400
+  ) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setter(event.target.result as string);
-          toast.success('Local image uploaded successfully!');
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file, maxW, maxH);
+        setter(compressed);
+        toast.success('Image uploaded & optimized successfully!');
+      } catch (err) {
+        console.error('Image compression failed:', err);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setter(event.target.result as string);
+            toast.success('Local image uploaded!');
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

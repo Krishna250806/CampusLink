@@ -72,20 +72,7 @@ export const EventBuilderPage: React.FC = () => {
           email: "events@campuslink.app",
           phone: "+1 555-0199"
         },
-        links: [
-          {
-            id: 'lnk_reg_draft',
-            title: '🚀 Register Now — Free Entry',
-            url: 'https://forms.google.com',
-            icon: 'UserPlus',
-            description: 'Official registration desk',
-            type: 'registration',
-            featured: true,
-            visible: true,
-            sortOrder: 1,
-            clickCount: 0
-          }
-        ],
+        links: targetEvent?.links || [],
         announcements: []
       };
 

@@ -188,20 +188,34 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     : (eventList.find(e => e.id === activeEvent?.id) || undefined);
 
   // Match Event cleanly (prefers live builder preview > fresh local storage edit > fresh remote Supabase fetch > decoded URL payload > fallback)
-  const event: Event = customEvent
+  const rawEvent: Event = customEvent
     || localEvent
     || remoteEvent
     || decodedEventFromUrl
     || eventList[0]
     || DEFAULT_FALLBACK_EVENT;
 
-  // Match Committee based on resolved event, handle, remote Supabase committee, or active workspace committee
+  // Preserve links from local state if remote Supabase payload omitted links array
+  const resolvedLinks = (Array.isArray(rawEvent.links) && rawEvent.links.length > 0)
+    ? rawEvent.links
+    : (localEvent?.links && localEvent.links.length > 0 ? localEvent.links : (eventList.find(e => e.id === rawEvent.id || e.slug === rawEvent.slug)?.links || []));
+
+  const event: Event = {
+    ...rawEvent,
+    links: resolvedLinks
+  };
+
+  // Match Committee based on resolved event, handle, custom updated committee, remote Supabase committee, or active workspace committee
   const cleanHandleParam = (handle || '').toLowerCase().replace(/^@/, '');
-  const matchedCommittee = committeeList.find(c => c.id === event?.committeeId)
-    || (remoteCommittee && (remoteCommittee.id === event?.committeeId || remoteCommittee.userId === event?.userId) ? remoteCommittee : undefined)
+  const customCommInList = committeeList.find(c => c.name && c.name !== DEFAULT_FALLBACK_COMMITTEE.name)
+    || (activeCommittee && activeCommittee.name !== DEFAULT_FALLBACK_COMMITTEE.name ? activeCommittee : undefined);
+
+  const matchedCommittee = committeeList.find(c => c.id === event?.committeeId && c.name && c.name !== DEFAULT_FALLBACK_COMMITTEE.name)
+    || (remoteCommittee && remoteCommittee.name && remoteCommittee.name !== DEFAULT_FALLBACK_COMMITTEE.name ? remoteCommittee : undefined)
     || (cleanHandleParam ? committeeList.find(c => c.handle?.toLowerCase() === cleanHandleParam) : undefined)
-    || committeeList.find(c => c.userId && event?.userId && c.userId === event.userId)
-    || remoteCommittee
+    || customCommInList
+    || (remoteCommittee && (remoteCommittee.id === event?.committeeId || remoteCommittee.userId === event?.userId) ? remoteCommittee : undefined)
+    || committeeList.find(c => c.id === event?.committeeId)
     || activeCommittee
     || committeeList[0]
     || DEFAULT_FALLBACK_COMMITTEE;
@@ -521,7 +535,34 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
 
         {/* 2. ELEGANT INTERACTIVE LINK CARDS */}
         {(() => {
-          const displayLinks = (event.links || [])
+          const rawLinks: EventLink[] = (event.links && event.links.length > 0)
+            ? event.links
+            : [
+                {
+                  id: `lnk_${event.id || '1'}_1`,
+                  title: '📄 Event Rulebook & Guidelines',
+                  url: 'https://campuslink.app/rulebook',
+                  icon: 'FileText',
+                  type: 'custom',
+                  featured: true,
+                  visible: true,
+                  sortOrder: 1,
+                  clickCount: 0
+                },
+                {
+                  id: `lnk_${event.id || '1'}_2`,
+                  title: '💬 Official WhatsApp Community Group',
+                  url: 'https://chat.whatsapp.com',
+                  icon: 'MessageSquare',
+                  type: 'whatsapp',
+                  featured: false,
+                  visible: true,
+                  sortOrder: 2,
+                  clickCount: 0
+                }
+              ];
+
+          const displayLinks = rawLinks
             .filter((l: EventLink) => l.visible)
             .reduce((acc: EventLink[], current: EventLink) => {
               const isDuplicateCta = Boolean(

@@ -687,7 +687,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000'
           : created.posterUrl;
 
-        const basePayload: any = {
+        supabase.from('events').upsert({
           id: created.id,
           user_id: activeUser.id,
           committee_id: created.committeeId,
@@ -706,18 +706,8 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           theme_id: created.themeId || 'midnight',
           custom_accent_color: created.customAccentColor || '#fafafa',
           status: created.status || 'published'
-        };
-
-        supabase.from('events').upsert({
-          ...basePayload,
-          links: created.links || [],
-          announcements: created.announcements || [],
-          schedule: created.schedule || [],
-          rulebook: created.rulebook || []
         }).then(({ error }) => {
-          if (error && (error.message?.includes('column') || (error as any).code === 'PGRST204')) {
-            supabase.from('events').upsert(basePayload);
-          }
+          if (error) console.warn('Supabase create event info:', error.message || error);
         });
       } catch (err) {}
     }
@@ -773,7 +763,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000'
           : updatedTargetEvent.posterUrl;
 
-        const basePayload: any = {
+        supabase.from('events').upsert({
           id: updatedTargetEvent.id,
           user_id: user?.id || updatedTargetEvent.userId || 'comm_main',
           committee_id: updatedTargetEvent.committeeId,
@@ -792,18 +782,8 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           theme_id: updatedTargetEvent.themeId || 'midnight',
           custom_accent_color: updatedTargetEvent.customAccentColor || '#fafafa',
           status: updatedTargetEvent.status || 'published'
-        };
-
-        supabase.from('events').upsert({
-          ...basePayload,
-          links: updatedTargetEvent.links || [],
-          announcements: updatedTargetEvent.announcements || [],
-          schedule: updatedTargetEvent.schedule || [],
-          rulebook: updatedTargetEvent.rulebook || []
         }).then(({ error }) => {
-          if (error && (error.message?.includes('column') || (error as any).code === 'PGRST204')) {
-            supabase.from('events').upsert(basePayload);
-          }
+          if (error) console.warn('Supabase update event info:', error.message || error);
         });
       } catch (err) {}
     }

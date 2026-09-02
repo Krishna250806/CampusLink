@@ -38,7 +38,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   customEvent
 }) => {
   const { handle, eventSlug } = useParams<{ handle?: string; eventSlug?: string }>();
-  const { committees, events, allCommittees, allEvents, activeCommittee, activeEvent, user, recordPageView, recordLinkClick, recordRegClick } = useCampusLink();
+  const { committees, events, allCommittees, allEvents, activeCommittee, activeEvent, recordPageView, recordLinkClick, recordRegClick } = useCampusLink();
 
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -164,16 +164,14 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     };
   }, []);
 
-  // Find local context matching event (by slug, by ID, by decoded payload ID, or active event)
+  // Find local context matching event (by slug, by ID, or by decoded payload ID)
   const localEvent = targetSlug
     ? (
         eventList.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) ||
         (decodedEventFromUrl?.id ? eventList.find(e => e.id === decodedEventFromUrl.id) : undefined) ||
-        (decodedEventFromUrl?.title ? eventList.find(e => e.title?.toLowerCase() === decodedEventFromUrl.title?.toLowerCase()) : undefined) ||
-        eventList.find(e => e.committeeId === activeCommittee?.id || (e.userId && user?.id && e.userId === user.id)) ||
-        eventList[0]
+        (decodedEventFromUrl?.title ? eventList.find(e => e.title?.toLowerCase() === decodedEventFromUrl.title?.toLowerCase()) : undefined)
       )
-    : (eventList.find(e => e.id === activeEvent?.id) || eventList[0]);
+    : (eventList.find(e => e.id === activeEvent?.id) || undefined);
 
   // Match Event cleanly (prefers live builder preview > fresh local storage edit > fresh remote Supabase fetch > decoded URL payload > fallback)
   const event: Event = customEvent
@@ -189,33 +187,23 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     || (cleanHandleParam ? committeeList.find(c => c.handle?.toLowerCase() === cleanHandleParam) : undefined)
     || committeeList.find(c => c.userId && event?.userId && c.userId === event.userId)
     || (activeCommittee?.id === event?.committeeId ? activeCommittee : undefined)
-    || committeeList.find(c => c.id !== 'comm_main')
-    || activeCommittee
-    || committeeList[0]
-    || DEFAULT_FALLBACK_COMMITTEE;
+    || committeeList.find(c => c.id !== 'comm_main');
 
-  const rawLogo = matchedCommittee?.logoUrl
-    || (event as any)?.committeeLogoUrl
-    || (event as any)?.committee?.logoUrl
-    || (customEvent as any)?.committee?.logoUrl
-    || DEFAULT_FALLBACK_COMMITTEE.logoUrl;
+  const rawLogo = (matchedCommittee?.logoUrl && matchedCommittee.logoUrl !== DEFAULT_FALLBACK_COMMITTEE.logoUrl)
+    ? matchedCommittee.logoUrl
+    : ((event as any)?.committeeLogoUrl || (event as any)?.committee?.logoUrl || matchedCommittee?.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl);
 
   const committeeLogo = (rawLogo && rawLogo.startsWith('http'))
     ? `${rawLogo}${rawLogo.includes('?') ? '&' : '?'}v=${matchedCommittee?.updatedAt || Date.now()}`
     : (rawLogo || DEFAULT_FALLBACK_COMMITTEE.logoUrl);
 
-  const committeeName = matchedCommittee?.name
-    || (event as any)?.committeeName
-    || (event as any)?.committee?.name
-    || (customEvent as any)?.committee?.name
-    || DEFAULT_FALLBACK_COMMITTEE.name;
+  const committeeName = (matchedCommittee?.name && matchedCommittee.name !== DEFAULT_FALLBACK_COMMITTEE.name)
+    ? matchedCommittee.name
+    : ((event as any)?.committeeName || (event as any)?.committee?.name || matchedCommittee?.name || DEFAULT_FALLBACK_COMMITTEE.name);
 
-  const committeeHandle = matchedCommittee?.handle
-    || (event as any)?.committeeHandle
-    || (event as any)?.committee?.handle
-    || (customEvent as any)?.committee?.handle
-    || (cleanHandleParam && cleanHandleParam !== 'events' ? cleanHandleParam : undefined)
-    || DEFAULT_FALLBACK_COMMITTEE.handle;
+  const committeeHandle = (matchedCommittee?.handle && matchedCommittee.handle !== DEFAULT_FALLBACK_COMMITTEE.handle)
+    ? matchedCommittee.handle
+    : ((event as any)?.committeeHandle || (event as any)?.committee?.handle || matchedCommittee?.handle || (cleanHandleParam && cleanHandleParam !== 'events' ? cleanHandleParam : undefined) || DEFAULT_FALLBACK_COMMITTEE.handle);
 
   const committee: Committee = {
     id: matchedCommittee?.id || event?.committeeId || DEFAULT_FALLBACK_COMMITTEE.id,

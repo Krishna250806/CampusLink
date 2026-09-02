@@ -40,7 +40,7 @@ export const QrModal: React.FC<QrModalProps> = ({
 
   const targetSlug = event.slug || event.id || 'my-event';
   const encodedPayload = encodeEventPayload(event, committee);
-  const payloadQuery = (qrMode === 'payload' && encodedPayload) ? `?d=${encodedPayload}` : '';
+  const payloadQuery = encodedPayload ? `?d=${encodedPayload}` : '';
 
   // Clean base URL without trailing slashes
   const cleanBaseHost = (customHost.trim() || defaultOrigin).replace(/\/+$/, '');

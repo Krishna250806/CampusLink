@@ -1,41 +1,44 @@
 import type { Event, Committee } from '../types/campuslink';
 
 /**
- * Encodes an Event & Committee object into a compact, URL-safe Base64 string.
+ * Encodes an Event & Committee object into a hyper-compact, URL-safe Base64 string.
  * Uses TextEncoder and URL-safe Base64 (- and _ replacing + and /, no trailing padding =).
+ * Omits empty fields to produce a minimal string (~120-180 chars) for instant QR scannability.
  */
 export function encodeEventPayload(event: Partial<Event>, committee?: Partial<Committee>): string {
   try {
-    const compactPayload = {
-      t: event.title || '',
-      g: event.tagline || '',
-      d: (event.description || '').slice(0, 300),
-      p: event.posterUrl && !event.posterUrl.startsWith('data:') ? event.posterUrl : '',
-      s: event.startDate || '',
-      e: event.endDate || '',
-      v: event.venue || '',
-      a: event.address || '',
-      m: event.mapsUrl || '',
-      c: event.primaryCtaText || '',
-      u: event.primaryCtaUrl || '',
-      th: event.themeId || 'midnight',
-      ac: event.customAccentColor || '#fafafa',
-      bg: event.bgSvgPattern && event.bgSvgPattern.length < 100 ? event.bgSvgPattern : '',
-      cn: committee?.name || '',
-      ch: committee?.handle || '',
-      cl: committee?.logoUrl && !committee.logoUrl.startsWith('data:') ? committee.logoUrl : '',
-      l: (event.links || []).slice(0, 10).map(link => ({
-        id: link.id,
+    const obj: Record<string, any> = {};
+
+    if (event.title) obj.t = event.title;
+    if (event.tagline) obj.g = event.tagline;
+    if (event.description) obj.d = event.description.slice(0, 150);
+    if (event.posterUrl && !event.posterUrl.startsWith('data:')) obj.p = event.posterUrl;
+    if (event.startDate) obj.s = event.startDate;
+    if (event.endDate) obj.e = event.endDate;
+    if (event.venue) obj.v = event.venue;
+    if (event.address) obj.a = event.address;
+    if (event.mapsUrl) obj.m = event.mapsUrl;
+    if (event.primaryCtaText) obj.c = event.primaryCtaText;
+    if (event.primaryCtaUrl) obj.u = event.primaryCtaUrl;
+    if (event.themeId && event.themeId !== 'midnight') obj.th = event.themeId;
+    if (event.customAccentColor && event.customAccentColor !== '#fafafa') obj.ac = event.customAccentColor;
+    if (event.bgSvgPattern && event.bgSvgPattern.length < 100) obj.bg = event.bgSvgPattern;
+
+    if (committee?.name) obj.cn = committee.name;
+    if (committee?.handle) obj.ch = committee.handle;
+    if (committee?.logoUrl && !committee.logoUrl.startsWith('data:')) obj.cl = committee.logoUrl;
+
+    if (Array.isArray(event.links) && event.links.length > 0) {
+      obj.l = event.links.slice(0, 6).map(link => ({
         t: link.title,
         u: link.url,
-        i: link.icon,
-        d: (link.description || '').slice(0, 100),
-        tp: link.type || 'custom',
-        f: link.featured ? 1 : 0
-      }))
-    };
+        i: link.icon !== 'Link' ? link.icon : undefined,
+        tp: link.type !== 'custom' ? link.type : undefined,
+        f: link.featured ? 1 : undefined
+      }));
+    }
 
-    const jsonStr = JSON.stringify(compactPayload);
+    const jsonStr = JSON.stringify(obj);
     const bytes = new TextEncoder().encode(jsonStr);
     let binary = '';
     for (let i = 0; i < bytes.length; i++) {
@@ -75,7 +78,7 @@ export function decodeEventPayload(encoded: string): { event: Partial<Event>; co
     const parsedLinks = Array.isArray(rawLinks) ? rawLinks.map((l: any, idx: number) => ({
       id: l.id || `lnk_dyn_${idx}`,
       title: l.t || l.title || 'Link',
-      url: l.u || l.url || 'https://campuslink.app',
+      url: l.u || l.url || '#',
       icon: l.i || l.icon || 'ExternalLink',
       description: l.d || l.description || '',
       type: l.tp || l.type || 'custom',

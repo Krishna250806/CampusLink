@@ -499,81 +499,96 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
         )}
 
         {/* 2. ELEGANT INTERACTIVE LINK CARDS */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-xs font-bold uppercase tracking-wider opacity-70">
-              Event Resources & Links ({event.links.filter((l: EventLink) => l.visible).length})
-            </h3>
-            <span className="text-[10px] opacity-50 font-mono">Tap to open</span>
-          </div>
+        {(() => {
+          const displayLinks = (event.links || [])
+            .filter((l: EventLink) => l.visible)
+            .reduce((acc: EventLink[], current: EventLink) => {
+              const isDuplicateCta = current.url === event.primaryCtaUrl && acc.some(l => l.url === event.primaryCtaUrl);
+              const isDuplicate = acc.some(l => l.id === current.id || (l.title === current.title && l.url === current.url));
+              if (!isDuplicateCta && !isDuplicate) {
+                acc.push(current);
+              }
+              return acc;
+            }, [])
+            .sort((a: EventLink, b: EventLink) => a.sortOrder - b.sortOrder);
 
-          <div className="space-y-3">
-            {event.links
-              .filter((l: EventLink) => l.visible)
-              .sort((a: EventLink, b: EventLink) => a.sortOrder - b.sortOrder)
-              .map((link: EventLink, index: number) => {
-                const isFeatured = link.featured;
-                const isPopBrutalist = event.themeId === 'popbrutalist';
-                const popBgColors = ['#ff6b6b', '#4ecdc4', '#c77dff', '#ff9f1c', '#2ec4b6', '#ffd166'];
-                const cardBg = isPopBrutalist ? popBgColors[index % popBgColors.length] : undefined;
+          if (displayLinks.length === 0) return null;
 
-                return (
-                  <div
-                    key={link.id}
-                    onClick={() => handleLinkClick(link)}
-                    className={`theme-card group cursor-pointer p-4 transition-all duration-200 flex items-center justify-between gap-4 ${
-                      isPopBrutalist
-                        ? 'rounded-2xl border-4 border-black text-black font-extrabold shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
-                        : isFeatured
-                        ? 'rounded-2xl ring-2 ring-white/30 shadow-lg scale-[1.01]'
-                        : 'rounded-2xl'
-                    }`}
-                    style={isPopBrutalist ? { backgroundColor: cardBg, color: '#000000' } : undefined}
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      {/* Icon Container */}
-                      <div
-                        className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${
-                          isPopBrutalist
-                            ? 'bg-black text-white shadow-md'
-                            : isFeatured
-                            ? 'bg-zinc-100 text-neutral-950 shadow-md'
-                            : 'bg-white/10 text-white border border-white/10'
-                        }`}
-                      >
-                        <DynamicIcon name={link.icon} className="w-5.5 h-5.5" />
-                      </div>
+          return (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-xs font-bold uppercase tracking-wider opacity-70">
+                  Event Resources & Links ({displayLinks.length})
+                </h3>
+                <span className="text-[10px] opacity-50 font-mono">Tap to open</span>
+              </div>
 
-                      {/* Text & Desc */}
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className={`text-sm sm:text-base font-extrabold truncate ${isPopBrutalist ? 'text-black' : 'group-hover:text-zinc-200'} transition-colors`}>
-                            {link.title}
-                          </h4>
-                          {isFeatured && (
-                            <span className={`px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest rounded-full ${
-                              isPopBrutalist
-                                ? 'bg-black text-white border border-black'
-                                : 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
-                            }`}>
-                              Featured
-                            </span>
+              <div className="space-y-3">
+                {displayLinks.map((link: EventLink, index: number) => {
+                  const isFeatured = link.featured;
+                  const isPopBrutalist = event.themeId === 'popbrutalist';
+                  const popBgColors = ['#ff6b6b', '#4ecdc4', '#c77dff', '#ff9f1c', '#2ec4b6', '#ffd166'];
+                  const cardBg = isPopBrutalist ? popBgColors[index % popBgColors.length] : undefined;
+
+                  return (
+                    <div
+                      key={link.id}
+                      onClick={() => handleLinkClick(link)}
+                      className={`theme-card group cursor-pointer p-4 transition-all duration-200 flex items-center justify-between gap-4 ${
+                        isPopBrutalist
+                          ? 'rounded-2xl border-4 border-black text-black font-extrabold shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
+                          : isFeatured
+                          ? 'rounded-2xl ring-2 ring-white/30 shadow-lg scale-[1.01]'
+                          : 'rounded-2xl'
+                      }`}
+                      style={isPopBrutalist ? { backgroundColor: cardBg, color: '#000000' } : undefined}
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        {/* Icon Container */}
+                        <div
+                          className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${
+                            isPopBrutalist
+                              ? 'bg-black text-white shadow-md'
+                              : isFeatured
+                              ? 'bg-zinc-100 text-neutral-950 shadow-md'
+                              : 'bg-white/10 text-white border border-white/10'
+                          }`}
+                        >
+                          <DynamicIcon name={link.icon} className="w-5.5 h-5.5" />
+                        </div>
+
+                        {/* Text & Desc */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className={`text-sm sm:text-base font-extrabold truncate ${isPopBrutalist ? 'text-black' : 'group-hover:text-zinc-200'} transition-colors`}>
+                              {link.title}
+                            </h4>
+                            {isFeatured && (
+                              <span className={`px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest rounded-full ${
+                                isPopBrutalist
+                                  ? 'bg-black text-white border border-black'
+                                  : 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
+                              }`}>
+                                Featured
+                              </span>
+                            )}
+                          </div>
+                          {link.description && (
+                            <p className={`text-xs truncate mt-0.5 ${isPopBrutalist ? 'text-black/80 font-bold' : 'opacity-75'}`}>
+                              {link.description}
+                            </p>
                           )}
                         </div>
-                        {link.description && (
-                          <p className={`text-xs truncate mt-0.5 ${isPopBrutalist ? 'text-black/80 font-bold' : 'opacity-75'}`}>
-                            {link.description}
-                          </p>
-                        )}
                       </div>
-                    </div>
 
-                    <ChevronRight className={`w-5 h-5 ${isPopBrutalist ? 'text-black font-black opacity-100' : 'opacity-40'} group-hover:opacity-100 group-hover:translate-x-1 transition-all flex-shrink-0`} />
-                  </div>
-                );
-              })}
-          </div>
-        </section>
+                      <ChevronRight className={`w-5 h-5 ${isPopBrutalist ? 'text-black font-black opacity-100' : 'opacity-40'} group-hover:opacity-100 group-hover:translate-x-1 transition-all flex-shrink-0`} />
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })()}
 
         {/* 3. CLEAN WATERMARK FOOTER */}
         <footer className="pt-6 pb-2 text-center">

@@ -112,18 +112,35 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Default Fallback Committee
-export const DEFAULT_FALLBACK_COMMITTEE: Committee = {
-  id: 'comm_main',
-  handle: 'my-org',
-  name: 'My Student Committee',
-  tagline: 'Empower your campus events with CampusLink',
-  logoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:24px;border-radius:24px"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
-  description: 'Official student organization microsite.',
-  socials: {},
-  verified: true,
-  members: []
+// Saved Fallback Committee helper
+const getSavedFallbackCommittee = (): Committee => {
+  const base: Committee = {
+    id: 'comm_main',
+    handle: 'my-org',
+    name: 'My Student Committee',
+    tagline: 'Empower your campus events with CampusLink',
+    logoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:24px;border-radius:24px"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
+    description: 'Official student organization microsite.',
+    socials: {},
+    verified: true,
+    members: []
+  };
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('campuslink_fallback_committee_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return { ...base, ...parsed };
+        }
+      }
+    } catch {}
+  }
+  return base;
 };
+
+// Default Fallback Committee
+export const DEFAULT_FALLBACK_COMMITTEE: Committee = getSavedFallbackCommittee();
 
 export const DEFAULT_FALLBACK_EVENT: Event = {
   id: 'evt_main',
@@ -1026,6 +1043,12 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (partial.handle) {
       DEFAULT_FALLBACK_COMMITTEE.handle = partial.handle;
     }
+
+    safeLocalStorageSet('campuslink_fallback_committee_v1', JSON.stringify({
+      name: DEFAULT_FALLBACK_COMMITTEE.name,
+      logoUrl: DEFAULT_FALLBACK_COMMITTEE.logoUrl,
+      handle: DEFAULT_FALLBACK_COMMITTEE.handle
+    }));
 
     if (isSupabaseConfigured() && updatedTargetComm) {
       try {

@@ -27,7 +27,7 @@ export function encodeEventPayload(event: Partial<Event>, committee?: Partial<Co
 
     if (committee?.name) obj.cn = committee.name;
     if (committee?.handle) obj.ch = committee.handle;
-    if (committee?.logoUrl && committee.logoUrl.length < 500) obj.cl = committee.logoUrl;
+    if (committee?.logoUrl && committee.logoUrl.length < 80000) obj.cl = committee.logoUrl;
 
     if (Array.isArray(event.links) && event.links.length > 0) {
       obj.l = event.links.slice(0, 6).map(link => ({

@@ -682,34 +682,40 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // Sync to Supabase DB if configured
     if (isSupabaseConfigured() && activeUser) {
-      supabase.from('events').upsert({
-        id: created.id,
-        user_id: activeUser.id,
-        committee_id: created.committeeId,
-        slug: created.slug,
-        title: created.title,
-        tagline: created.tagline,
-        description: created.description,
-        poster_url: created.posterUrl,
-        start_date: created.startDate,
-        end_date: created.endDate,
-        venue: created.venue,
-        address: created.address,
-        maps_url: created.mapsUrl,
-        primary_cta_text: created.primaryCtaText,
-        primary_cta_url: created.primaryCtaUrl,
-        organizer_contact: created.organizerContact,
-        theme_id: created.themeId,
-        custom_accent_color: created.customAccentColor,
-        bg_svg_pattern: created.bgSvgPattern,
-        links: created.links || [],
-        announcements: created.announcements || [],
-        schedule: created.schedule || [],
-        rulebook: created.rulebook || [],
-        status: created.status
-      }, { onConflict: 'id' }).then(({ error }) => {
-        if (error) console.error('Supabase create event error:', error);
-      });
+      try {
+        const cleanPoster = created.posterUrl?.startsWith('data:') && created.posterUrl.length > 50000
+          ? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000'
+          : created.posterUrl;
+
+        supabase.from('events').upsert({
+          id: created.id,
+          user_id: activeUser.id,
+          committee_id: created.committeeId,
+          slug: created.slug,
+          title: created.title,
+          tagline: created.tagline || '',
+          description: created.description || '',
+          poster_url: cleanPoster || '',
+          start_date: created.startDate,
+          end_date: created.endDate,
+          venue: created.venue || '',
+          address: created.address || '',
+          maps_url: created.mapsUrl || '',
+          primary_cta_text: created.primaryCtaText || 'Register Now',
+          primary_cta_url: created.primaryCtaUrl || '',
+          organizer_contact: created.organizerContact || {},
+          theme_id: created.themeId || 'midnight',
+          custom_accent_color: created.customAccentColor || '#fafafa',
+          bg_svg_pattern: created.bgSvgPattern || '',
+          links: created.links || [],
+          announcements: created.announcements || [],
+          schedule: created.schedule || [],
+          rulebook: created.rulebook || [],
+          status: created.status || 'published'
+        }).then(({ error }) => {
+          if (error) console.warn('Supabase create event info:', error.message || error);
+        });
+      } catch (err) {}
     }
 
     return created;
@@ -758,34 +764,40 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // Sync to Supabase DB if configured
     if (isSupabaseConfigured() && updatedTargetEvent) {
-      supabase.from('events').upsert({
-        id: updatedTargetEvent.id,
-        user_id: user?.id || updatedTargetEvent.userId || 'comm_main',
-        committee_id: updatedTargetEvent.committeeId,
-        slug: updatedTargetEvent.slug,
-        title: updatedTargetEvent.title,
-        tagline: updatedTargetEvent.tagline,
-        description: updatedTargetEvent.description,
-        poster_url: updatedTargetEvent.posterUrl,
-        start_date: updatedTargetEvent.startDate,
-        end_date: updatedTargetEvent.endDate,
-        venue: updatedTargetEvent.venue,
-        address: updatedTargetEvent.address,
-        maps_url: updatedTargetEvent.mapsUrl,
-        primary_cta_text: updatedTargetEvent.primaryCtaText,
-        primary_cta_url: updatedTargetEvent.primaryCtaUrl,
-        organizer_contact: updatedTargetEvent.organizerContact,
-        theme_id: updatedTargetEvent.themeId,
-        custom_accent_color: updatedTargetEvent.customAccentColor,
-        bg_svg_pattern: updatedTargetEvent.bgSvgPattern,
-        links: updatedTargetEvent.links || [],
-        announcements: updatedTargetEvent.announcements || [],
-        schedule: updatedTargetEvent.schedule || [],
-        rulebook: updatedTargetEvent.rulebook || [],
-        status: updatedTargetEvent.status
-      }, { onConflict: 'id' }).then(({ error }) => {
-        if (error) console.error('Supabase update event error:', error);
-      });
+      try {
+        const cleanPoster = updatedTargetEvent.posterUrl?.startsWith('data:') && updatedTargetEvent.posterUrl.length > 50000
+          ? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000'
+          : updatedTargetEvent.posterUrl;
+
+        supabase.from('events').upsert({
+          id: updatedTargetEvent.id,
+          user_id: user?.id || updatedTargetEvent.userId || 'comm_main',
+          committee_id: updatedTargetEvent.committeeId,
+          slug: updatedTargetEvent.slug,
+          title: updatedTargetEvent.title,
+          tagline: updatedTargetEvent.tagline || '',
+          description: updatedTargetEvent.description || '',
+          poster_url: cleanPoster || '',
+          start_date: updatedTargetEvent.startDate,
+          end_date: updatedTargetEvent.endDate,
+          venue: updatedTargetEvent.venue || '',
+          address: updatedTargetEvent.address || '',
+          maps_url: updatedTargetEvent.mapsUrl || '',
+          primary_cta_text: updatedTargetEvent.primaryCtaText || 'Register Now',
+          primary_cta_url: updatedTargetEvent.primaryCtaUrl || '',
+          organizer_contact: updatedTargetEvent.organizerContact || {},
+          theme_id: updatedTargetEvent.themeId || 'midnight',
+          custom_accent_color: updatedTargetEvent.customAccentColor || '#fafafa',
+          bg_svg_pattern: updatedTargetEvent.bgSvgPattern || '',
+          links: updatedTargetEvent.links || [],
+          announcements: updatedTargetEvent.announcements || [],
+          schedule: updatedTargetEvent.schedule || [],
+          rulebook: updatedTargetEvent.rulebook || [],
+          status: updatedTargetEvent.status || 'published'
+        }).then(({ error }) => {
+          if (error) console.warn('Supabase update event info:', error.message || error);
+        });
+      } catch (err) {}
     }
   };
 
@@ -1023,21 +1035,29 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (partial.name) {
       DEFAULT_FALLBACK_COMMITTEE.name = partial.name;
     }
+    if (partial.handle) {
+      DEFAULT_FALLBACK_COMMITTEE.handle = partial.handle;
+    }
 
     if (isSupabaseConfigured() && updatedTargetComm) {
-      supabase.from('committees').upsert({
-        id: updatedTargetComm.id,
-        user_id: user?.id || updatedTargetComm.userId || 'comm_main',
-        name: updatedTargetComm.name,
-        handle: updatedTargetComm.handle,
-        tagline: updatedTargetComm.tagline,
-        logo_url: updatedTargetComm.logoUrl,
-        cover_url: updatedTargetComm.coverUrl,
-        description: updatedTargetComm.description,
-        socials: updatedTargetComm.socials || {}
-      }, { onConflict: 'id' }).then(({ error }) => {
-        if (error) console.error('Supabase update committee error:', error);
-      });
+      try {
+        const cleanLogo = updatedTargetComm.logoUrl?.startsWith('data:') && updatedTargetComm.logoUrl.length > 50000
+          ? DEFAULT_FALLBACK_COMMITTEE.logoUrl
+          : updatedTargetComm.logoUrl;
+
+        supabase.from('committees').upsert({
+          id: updatedTargetComm.id,
+          user_id: user?.id || updatedTargetComm.userId || 'comm_main',
+          name: updatedTargetComm.name,
+          handle: updatedTargetComm.handle,
+          tagline: updatedTargetComm.tagline || '',
+          logo_url: cleanLogo || '',
+          description: updatedTargetComm.description || '',
+          socials: updatedTargetComm.socials || {}
+        }).then(({ error }) => {
+          if (error) console.warn('Supabase update committee info:', error.message || error);
+        });
+      } catch (err) {}
     }
   };
 

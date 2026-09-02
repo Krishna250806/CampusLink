@@ -55,55 +55,57 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     if (!targetSlug || !isSupabaseConfigured()) return;
 
     const fetchSupabaseEvent = async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .or(`slug.eq.${targetSlug},id.eq.${targetSlug}`)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .or(`slug.eq.${targetSlug},id.eq.${targetSlug}`)
+          .maybeSingle();
 
-      if (data && !error) {
-        const fetched: Event = {
-          id: data.id,
-          userId: data.user_id,
-          committeeId: data.committee_id,
-          slug: data.slug,
-          title: data.title,
-          tagline: data.tagline || '',
-          description: data.description || '',
-          posterUrl: data.poster_url || '',
-          startDate: data.start_date,
-          endDate: data.end_date,
-          venue: data.venue || '',
-          address: data.address || '',
-          mapsUrl: data.maps_url || '',
-          primaryCtaText: data.primary_cta_text || 'Register Now',
-          primaryCtaUrl: data.primary_cta_url || '',
-          organizerContact: data.organizer_contact || {},
-          themeId: data.theme_id || 'midnight',
-          customAccentColor: data.custom_accent_color || '#fafafa',
-          bgSvgPattern: data.bg_svg_pattern || '',
-          status: data.status || 'published',
-          createdAt: data.created_at || new Date().toISOString(),
-          updatedAt: data.updated_at || new Date().toISOString(),
-          announcements: Array.isArray(data.announcements) ? data.announcements : [],
-          schedule: Array.isArray(data.schedule) ? data.schedule : [],
-          rulebook: Array.isArray(data.rulebook) ? data.rulebook : [],
-          links: Array.isArray(data.links) && data.links.length > 0 ? data.links : [
-            {
-              id: `lnk_${data.id}_1`,
-              title: data.primary_cta_text || 'Register Now',
-              url: data.primary_cta_url || 'https://forms.google.com',
-              icon: 'UserPlus',
-              type: 'registration',
-              featured: true,
-              visible: true,
-              sortOrder: 1,
-              clickCount: 0
-            }
-          ]
-        };
-        setRemoteEvent(fetched);
-      }
+        if (data && !error) {
+          const fetched: Event = {
+            id: data.id,
+            userId: data.user_id,
+            committeeId: data.committee_id,
+            slug: data.slug,
+            title: data.title,
+            tagline: data.tagline || '',
+            description: data.description || '',
+            posterUrl: data.poster_url || '',
+            startDate: data.start_date,
+            endDate: data.end_date,
+            venue: data.venue || '',
+            address: data.address || '',
+            mapsUrl: data.maps_url || '',
+            primaryCtaText: data.primary_cta_text || 'Register Now',
+            primaryCtaUrl: data.primary_cta_url || '',
+            organizerContact: data.organizer_contact || {},
+            themeId: data.theme_id || 'midnight',
+            customAccentColor: data.custom_accent_color || '#fafafa',
+            bgSvgPattern: data.bg_svg_pattern || '',
+            status: data.status || 'published',
+            createdAt: data.created_at || new Date().toISOString(),
+            updatedAt: data.updated_at || new Date().toISOString(),
+            announcements: Array.isArray(data.announcements) ? data.announcements : [],
+            schedule: Array.isArray(data.schedule) ? data.schedule : [],
+            rulebook: Array.isArray(data.rulebook) ? data.rulebook : [],
+            links: Array.isArray(data.links) && data.links.length > 0 ? data.links : [
+              {
+                id: `lnk_${data.id}_1`,
+                title: data.primary_cta_text || 'Register Now',
+                url: data.primary_cta_url || 'https://forms.google.com',
+                icon: 'UserPlus',
+                type: 'registration',
+                featured: true,
+                visible: true,
+                sortOrder: 1,
+                clickCount: 0
+              }
+            ]
+          };
+          setRemoteEvent(fetched);
+        }
+      } catch (err) {}
     };
 
     fetchSupabaseEvent();

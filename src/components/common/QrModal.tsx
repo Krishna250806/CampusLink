@@ -258,7 +258,10 @@ export const QrModal: React.FC<QrModalProps> = ({
             <img
               src={committee.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl}
               alt={committee.name || 'Committee'}
-              className="w-12 h-12 rounded-full object-cover border-2 border-indigo-500/40 shadow-md"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = DEFAULT_FALLBACK_COMMITTEE.logoUrl;
+              }}
+              className="w-12 h-12 rounded-full object-cover border-2 border-indigo-500/40 shadow-md bg-neutral-900"
             />
             <div className="text-left">
               <p className="text-xs font-mono font-bold uppercase tracking-wider opacity-80">{committee.name || 'Student Committee'}</p>

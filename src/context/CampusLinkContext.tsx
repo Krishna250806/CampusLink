@@ -118,7 +118,7 @@ export const DEFAULT_FALLBACK_COMMITTEE: Committee = {
   handle: 'my-org',
   name: 'My Student Committee',
   tagline: 'Empower your campus events with CampusLink',
-  logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=300',
+  logoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:24px;border-radius:24px"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
   description: 'Official student organization microsite.',
   socials: {},
   verified: true,
@@ -391,21 +391,14 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Derived User-Scoped Workspace Data (STRICT ACCOUNT ISOLATION)
   const userCommittees = user
-    ? committees.filter(c => c.userId === user.id || c.id === user.committeeId)
+    ? (committees.filter(c => c.userId === user.id || c.id === user.committeeId).length > 0
+        ? committees.filter(c => c.userId === user.id || c.id === user.committeeId)
+        : committees)
     : committees;
 
-  const activeCommittee = userCommittees[0] || (user ? {
-    id: user.committeeId || `comm_${user.id}`,
-    userId: user.id,
-    handle: (user.email ? user.email.split('@')[0] : (user.id || 'org')).toLowerCase().replace(/[^a-z0-9]/g, ''),
-    name: `${user.name || 'Organizer'}'s Committee`,
-    tagline: 'Student organization page',
-    logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=300',
-    description: 'Official CampusLink page for ' + (user.name || 'Organizer'),
-    socials: {},
-    verified: false,
-    members: []
-  } : DEFAULT_FALLBACK_COMMITTEE);
+  const activeCommittee = userCommittees.find(c => c.id !== 'comm_main')
+    || userCommittees[0]
+    || DEFAULT_FALLBACK_COMMITTEE;
 
   const userEvents = user
     ? events.filter(e => e.userId === user.id || (e.committeeId && e.committeeId === user.committeeId))

@@ -4,9 +4,9 @@
  */
 export function compressImage(
   file: File,
-  maxWidth: number = 400,
-  maxHeight: number = 400,
-  quality: number = 0.85
+  maxWidth: number = 250,
+  maxHeight: number = 250,
+  quality: number = 0.75
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -40,9 +40,8 @@ export function compressImage(
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Convert canvas to compressed JPEG or PNG
-        const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-        const dataUrl = canvas.toDataURL(mimeType, quality);
+        // Convert canvas to compressed JPEG
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
         resolve(dataUrl);
       };
 

@@ -172,28 +172,23 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     || activeCommittee
     || committeeList[0];
 
-  const isDefaultComm = !matchedCommittee || matchedCommittee.id === 'comm_main';
-
-  const committeeLogo = (!isDefaultComm && matchedCommittee?.logoUrl)
+  const committeeLogo = matchedCommittee?.logoUrl
     || (event as any)?.committeeLogoUrl
     || (event as any)?.committee?.logoUrl
     || (customEvent as any)?.committee?.logoUrl
-    || matchedCommittee?.logoUrl
     || DEFAULT_FALLBACK_COMMITTEE.logoUrl;
 
-  const committeeName = (!isDefaultComm && matchedCommittee?.name)
+  const committeeName = matchedCommittee?.name
     || (event as any)?.committeeName
     || (event as any)?.committee?.name
     || (customEvent as any)?.committee?.name
-    || matchedCommittee?.name
     || DEFAULT_FALLBACK_COMMITTEE.name;
 
-  const committeeHandle = (!isDefaultComm && matchedCommittee?.handle)
+  const committeeHandle = matchedCommittee?.handle
     || (event as any)?.committeeHandle
     || (event as any)?.committee?.handle
     || (customEvent as any)?.committee?.handle
     || (cleanHandleParam && cleanHandleParam !== 'events' ? cleanHandleParam : undefined)
-    || matchedCommittee?.handle
     || DEFAULT_FALLBACK_COMMITTEE.handle;
 
   const committee: Committee = {

@@ -332,7 +332,14 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       {!isPreview && (
         <header className="sticky top-0 z-40 px-4 py-3 bg-neutral-950/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between">
           <Link to={`/@${committee.handle}`} className="flex items-center gap-2 text-xs font-semibold hover:opacity-80 transition-opacity">
-            <img src={committee.logoUrl} alt={committee.name} className="w-6 h-6 rounded-full object-cover border border-white/20" />
+            <img
+              src={committee.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl}
+              alt={committee.name}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:4px"><rect width="18" height="18" x="3" y="3" rx="4"/><path d="m9 12 2 2 4-4"/></svg>';
+              }}
+              className="w-6 h-6 rounded-full object-cover border border-white/20 bg-neutral-900"
+            />
             <span className="truncate max-w-[140px] font-mono opacity-90">@{committee.handle}</span>
           </Link>
 
@@ -376,7 +383,14 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
 
             {/* Committee Floating Badge */}
             <div className="absolute top-4 left-4 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/15 text-xs font-medium text-white shadow-lg">
-              <img src={committee.logoUrl} alt={committee.name} className="w-4 h-4 rounded-full object-cover" />
+              <img
+                src={committee.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl}
+                alt={committee.name}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:4px"><rect width="18" height="18" x="3" y="3" rx="4"/><path d="m9 12 2 2 4-4"/></svg>';
+                }}
+                className="w-4 h-4 rounded-full object-cover bg-neutral-900"
+              />
               <span>{committee.name}</span>
               {committee.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
             </div>

@@ -187,25 +187,32 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // User & Global workspace datasets
   const [committees, setCommittees] = useState<Committee[]>(() => {
-    const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
-    const userKey = getUserCommitteesKey(user?.id);
-    const userSaved = localStorage.getItem(userKey);
     let result: Committee[] = [];
-    if (globalSaved) {
+    if (typeof window !== 'undefined') {
       try {
-        const parsed = JSON.parse(globalSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
-      } catch {}
-    }
-    if (userSaved) {
-      try {
-        const parsed = JSON.parse(userSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const map = new Map<string, Committee>();
-          result.forEach(c => map.set(c.id, c));
-          parsed.forEach(c => map.set(c.id, c));
-          result = Array.from(map.values());
+        const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
+        if (globalSaved) {
+          const parsed = JSON.parse(globalSaved);
+          if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
         }
+        const map = new Map<string, Committee>();
+        result.forEach(c => map.set(c.id, c));
+
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('campuslink_v6_comm_') || k.startsWith('campuslink_clean_v6_comm'))) {
+            try {
+              const val = localStorage.getItem(k);
+              if (val) {
+                const parsedVal: Committee[] = JSON.parse(val);
+                if (Array.isArray(parsedVal)) {
+                  parsedVal.forEach(c => map.set(c.id, c));
+                }
+              }
+            } catch {}
+          }
+        }
+        result = Array.from(map.values());
       } catch {}
     }
     return result.length > 0 ? result : [DEFAULT_FALLBACK_COMMITTEE];
@@ -213,25 +220,32 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Master events dataset containing all published & created events
   const [events, setEvents] = useState<Event[]>(() => {
-    const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_EVENTS);
-    const userKey = getUserEventsKey(user?.id);
-    const userSaved = localStorage.getItem(userKey);
     let result: Event[] = [];
-    if (globalSaved) {
+    if (typeof window !== 'undefined') {
       try {
-        const parsed = JSON.parse(globalSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
-      } catch {}
-    }
-    if (userSaved) {
-      try {
-        const parsed = JSON.parse(userSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const map = new Map<string, Event>();
-          result.forEach(e => map.set(e.id, e));
-          parsed.forEach(e => map.set(e.id, e));
-          result = Array.from(map.values());
+        const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_EVENTS);
+        if (globalSaved) {
+          const parsed = JSON.parse(globalSaved);
+          if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
         }
+        const map = new Map<string, Event>();
+        result.forEach(e => map.set(e.id, e));
+
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('campuslink_v6_evt_') || k.startsWith('campuslink_clean_v6_evt'))) {
+            try {
+              const val = localStorage.getItem(k);
+              if (val) {
+                const parsedVal: Event[] = JSON.parse(val);
+                if (Array.isArray(parsedVal)) {
+                  parsedVal.forEach(e => map.set(e.id, e));
+                }
+              }
+            } catch {}
+          }
+        }
+        result = Array.from(map.values());
       } catch {}
     }
     return result.length > 0 ? result : [DEFAULT_FALLBACK_EVENT];
@@ -299,7 +313,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return () => subscription.unsubscribe();
   }, []);
 
-  // Save changes to LocalStorage safely
+  // Save changes to LocalStorage safely (merging to prevent wiping stored state on mount)
   useEffect(() => {
     safeLocalStorageSet(STORAGE_KEY_USER, JSON.stringify(user));
   }, [user]);
@@ -309,14 +323,38 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [registeredAccounts]);
 
   useEffect(() => {
-    safeLocalStorageSet(getUserCommitteesKey(user?.id), JSON.stringify(committees));
-    safeLocalStorageSet(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(committees));
+    if (committees && committees.length > 0) {
+      safeLocalStorageSet(getUserCommitteesKey(user?.id), JSON.stringify(committees));
+      try {
+        const existingGlobal = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
+        const map = new Map<string, Committee>();
+        if (existingGlobal) {
+          const parsed: Committee[] = JSON.parse(existingGlobal);
+          if (Array.isArray(parsed)) parsed.forEach(c => map.set(c.id, c));
+        }
+        committees.forEach(c => map.set(c.id, c));
+        safeLocalStorageSet(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(Array.from(map.values())));
+      } catch {
+        safeLocalStorageSet(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(committees));
+      }
+    }
   }, [committees, user?.id]);
 
   useEffect(() => {
-    safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(events));
     if (events && events.length > 0) {
-      safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(events));
+      safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(events));
+      try {
+        const existingGlobal = localStorage.getItem(STORAGE_KEY_GLOBAL_EVENTS);
+        const map = new Map<string, Event>();
+        if (existingGlobal) {
+          const parsed: Event[] = JSON.parse(existingGlobal);
+          if (Array.isArray(parsed)) parsed.forEach(e => map.set(e.id, e));
+        }
+        events.forEach(e => map.set(e.id, e));
+        safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(Array.from(map.values())));
+      } catch {
+        safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(events));
+      }
     }
   }, [events, user?.id]);
 

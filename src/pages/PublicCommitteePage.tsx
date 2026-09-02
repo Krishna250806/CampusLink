@@ -53,6 +53,9 @@ export const PublicCommitteePage: React.FC = () => {
               <img
                 src={committee.logoUrl}
                 alt={committee.name}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:4px"><rect width="18" height="18" x="3" y="3" rx="4"/><path d="m9 12 2 2 4-4"/></svg>';
+                }}
                 className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover border-2 border-white/20 shadow-2xl bg-neutral-900"
               />
               <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-zinc-100 text-neutral-950 flex items-center justify-center shadow-lg border border-white/20">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCampusLink } from '../../context/CampusLinkContext';
 import { Save, AlertCircle, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,6 +20,19 @@ export const SettingsTab: React.FC = () => {
   
   const [handleError, setHandleError] = useState('');
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (activeCommittee) {
+      setName(activeCommittee.name || '');
+      setHandle(activeCommittee.handle || '');
+      setTagline(activeCommittee.tagline || '');
+      setLogoUrl(activeCommittee.logoUrl || '');
+      setCoverUrl(activeCommittee.coverUrl || '');
+      setDescription(activeCommittee.description || '');
+      setInstagram(activeCommittee.socials?.instagram || '');
+      setWebsite(activeCommittee.socials?.website || '');
+    }
+  }, [activeCommittee.id, activeCommittee.name, activeCommittee.handle, activeCommittee.logoUrl]);
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,

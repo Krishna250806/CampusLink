@@ -324,6 +324,29 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     safeLocalStorageSet(STORAGE_KEY_ACTIVE_EVT, activeEventId);
   }, [activeEventId]);
 
+  // Sync event updates across open tabs in real-time
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY_GLOBAL_EVENTS || e.key === getUserEventsKey(user?.id)) {
+        if (e.newValue) {
+          try {
+            const parsed: Event[] = JSON.parse(e.newValue);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setEvents(prev => {
+                const map = new Map<string, Event>();
+                prev.forEach(item => map.set(item.id, item));
+                parsed.forEach(item => map.set(item.id, item));
+                return Array.from(map.values());
+              });
+            }
+          } catch {}
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [user?.id]);
+
   // Derived User-Scoped Workspace Data (STRICT ACCOUNT ISOLATION)
   const userCommittees = user
     ? committees.filter(c => c.userId === user.id || c.id === user.committeeId)

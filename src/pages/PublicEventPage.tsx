@@ -104,6 +104,10 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     };
 
     fetchSupabaseEvent();
+
+    // Auto-refetch when user switches back to browser tab or reloads
+    window.addEventListener('focus', fetchSupabaseEvent);
+    return () => window.removeEventListener('focus', fetchSupabaseEvent);
   }, [targetSlug]);
 
   // Decode URL payload if present (for 100% instant zero-backend QR scanner accuracy)
@@ -139,11 +143,14 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     }
   }
 
-  // Match Event cleanly (prefers live builder preview, fresh remote Supabase fetch, decoded URL payload, local cache, then default)
+  // Find local context matching event
+  const localEvent = targetSlug ? events.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) : undefined;
+
+  // Match Event cleanly (prefers live builder preview > fresh remote Supabase fetch > fresh local storage edit > decoded URL payload > fallback)
   const event: Event = customEvent
     || remoteEvent
+    || localEvent
     || decodedEventFromUrl
-    || (targetSlug ? events.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) : undefined)
     || (targetSlug ? undefined : events[0])
     || DEFAULT_FALLBACK_EVENT;
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Modal } from './Modal';
 import type { Event, Committee } from '../../types/campuslink';
-import { Download, Printer, Copy, Check, QrCode, Globe, Monitor } from 'lucide-react';
+import { Download, Printer, Copy, Check, QrCode, Wifi, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_FALLBACK_COMMITTEE, DEFAULT_FALLBACK_EVENT } from '../../context/CampusLinkContext';
 import { encodeEventPayload } from '../../utils/urlPayload';
@@ -14,6 +14,8 @@ interface QrModalProps {
   committee?: Committee | null;
 }
 
+const STORAGE_KEY_CUSTOM_HOST = 'campuslink_qr_custom_host';
+
 export const QrModal: React.FC<QrModalProps> = ({
   isOpen,
   onClose,
@@ -23,22 +25,35 @@ export const QrModal: React.FC<QrModalProps> = ({
   const [dataUrl, setDataUrl] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
   const [frameStyle, setFrameStyle] = useState<'minimal' | 'poster' | 'dark'>('poster');
-  const [domainMode, setDomainMode] = useState<'production' | 'origin'>('production');
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+
+  // Custom Base Host / Domain setting (remembered in localStorage)
+  const defaultOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
+  const [customHost, setCustomHost] = useState<string>(() => {
+    if (typeof window === 'undefined') return defaultOrigin;
+    return localStorage.getItem(STORAGE_KEY_CUSTOM_HOST) || defaultOrigin;
+  });
 
   const event = inputEvent || DEFAULT_FALLBACK_EVENT;
   const committee = inputCommittee || DEFAULT_FALLBACK_COMMITTEE;
 
   const targetSlug = event.slug || event.id || 'my-event';
-
   const encodedPayload = encodeEventPayload(event, committee);
   const payloadQuery = encodedPayload ? `?d=${encodedPayload}` : '';
 
-  // Public URL calculation: default to production domain so mobile phone cameras can scan cleanly
-  const publicUrl = domainMode === 'production'
-    ? `https://campuslink.app/events/${targetSlug}${payloadQuery}`
-    : (typeof window !== 'undefined'
-        ? `${window.location.origin}/events/${targetSlug}${payloadQuery}`
-        : `https://campuslink.app/events/${targetSlug}${payloadQuery}`);
+  // Clean base URL without trailing slashes
+  const cleanBaseHost = (customHost.trim() || defaultOrigin).replace(/\/+$/, '');
+  const publicUrl = `${cleanBaseHost}/events/${targetSlug}${payloadQuery}`;
+
+  const isLocalhost = cleanBaseHost.includes('localhost') || cleanBaseHost.includes('127.0.0.1');
+
+  // Save custom host when updated
+  const handleHostChange = (newHost: string) => {
+    setCustomHost(newHost);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_CUSTOM_HOST, newHost);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -62,14 +77,14 @@ export const QrModal: React.FC<QrModalProps> = ({
 
         let generatedUrl = '';
 
-        // Primary: Canvas PNG Data URL
+        // Engine 1: Canvas PNG Data URL
         if (typeof toDataURL === 'function') {
           try {
             generatedUrl = await toDataURL(publicUrl, opts);
           } catch (e) {}
         }
 
-        // Secondary Fallback: Pure Vector SVG Data URL (works 100% locally without canvas context)
+        // Engine 2: Vector SVG Data URL (Pure local offline fallback)
         if (!generatedUrl && typeof toString === 'function') {
           try {
             const svgStr = await toString(publicUrl, { ...opts, type: 'svg' });
@@ -77,7 +92,7 @@ export const QrModal: React.FC<QrModalProps> = ({
           } catch (e) {}
         }
 
-        if (isMounted) {
+        if (isMounted && generatedUrl) {
           setDataUrl(generatedUrl);
         }
       } catch (err) {
@@ -106,7 +121,7 @@ export const QrModal: React.FC<QrModalProps> = ({
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicUrl);
     setCopied(true);
-    toast.success("Event link copied to clipboard!");
+    toast.success("Event URL copied to clipboard!");
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -118,47 +133,18 @@ export const QrModal: React.FC<QrModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Print-Ready Event QR Code" maxWidth="md">
       <div className="space-y-5 text-center">
         
-        {/* Domain Mode & Frame Style Selectors */}
-        <div className="space-y-2">
-          {/* Domain Mode Switcher */}
-          <div className="flex justify-center gap-2 p-1 bg-slate-950/80 rounded-2xl border border-white/10 shadow-inner max-w-xs mx-auto">
-            <button
-              onClick={() => setDomainMode('production')}
-              className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                domainMode === 'production'
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Scannable by any mobile camera anywhere"
-            >
-              <Globe className="w-3.5 h-3.5" /> Mobile Live Domain
-            </button>
-            <button
-              onClick={() => setDomainMode('origin')}
-              className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                domainMode === 'origin'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Local dev origin for local browser testing"
-            >
-              <Monitor className="w-3.5 h-3.5" /> Local Dev URL
-            </button>
-          </div>
-
-          {/* Frame Style Selector */}
-          <div className="flex justify-center gap-2 p-1.5 bg-slate-950/80 rounded-2xl border border-white/10 shadow-inner">
+        {/* Frame Style & Settings Toggle Header */}
+        <div className="flex items-center justify-between gap-2 p-1.5 bg-slate-950/80 rounded-2xl border border-white/10 shadow-inner">
+          <div className="flex justify-center gap-1.5 flex-1">
             {(['poster', 'minimal', 'dark'] as const).map(style => {
               const isActive = frameStyle === style;
               const styleLabel = style === 'poster' ? 'Poster Frame' : style === 'minimal' ? 'Minimal White' : 'Cyber Dark';
-              const btnActive = 'bg-indigo-600 text-white shadow-md';
-              const btnInactive = 'text-slate-300 hover:text-white';
               return (
                 <button
                   key={style}
                   onClick={() => setFrameStyle(style)}
-                  className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    isActive ? btnActive : btnInactive
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    isActive ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   {styleLabel}
@@ -166,7 +152,65 @@ export const QrModal: React.FC<QrModalProps> = ({
               );
             })}
           </div>
+
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+              showSettings ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-neutral-900 text-slate-400 border-white/10 hover:text-white'
+            }`}
+            title="Configure Target Host / IP"
+          >
+            <Settings2 className="w-4 h-4" />
+          </button>
         </div>
+
+        {/* Target Host / IP Configuration Panel */}
+        {showSettings && (
+          <div className="p-4 bg-slate-950 border border-amber-500/30 rounded-2xl text-left space-y-3 shadow-xl">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                <Wifi className="w-4 h-4 text-amber-400" /> Mobile & Local Network Host Settings
+              </span>
+              <button
+                onClick={() => handleHostChange(defaultOrigin)}
+                className="text-[10px] text-slate-400 hover:text-slate-200 underline font-mono"
+              >
+                Reset to Current Origin
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1">Target Base URL or Wi-Fi IP</label>
+              <input
+                type="text"
+                value={customHost}
+                onChange={e => handleHostChange(e.target.value)}
+                placeholder="e.g. http://192.168.1.15:5173 or https://your-site.vercel.app"
+                className="w-full px-3.5 py-2 bg-neutral-900 border border-white/15 rounded-xl text-xs font-mono text-slate-100 focus:outline-none focus:border-amber-400"
+              />
+            </div>
+
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              💡 <strong>Scanning from phone on Wi-Fi?</strong> Enter your computer's local IP address (e.g. <code>http://192.168.1.x:5173</code>) or deployed live site URL so mobile cameras connect instantly.
+            </p>
+          </div>
+        )}
+
+        {/* Localhost Mobile Warning Banner */}
+        {isLocalhost && !showSettings && (
+          <div className="p-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl text-amber-300 text-[11px] flex items-center justify-between gap-2 text-left">
+            <div className="flex items-center gap-2">
+              <Wifi className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <span>Scanning from a mobile phone? Enter your Wi-Fi IP or deployed URL.</span>
+            </div>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-bold rounded-lg text-[10px] transition-colors whitespace-nowrap cursor-pointer"
+            >
+              Configure Host
+            </button>
+          </div>
+        )}
 
         {/* Printable Card Area */}
         <div
@@ -206,7 +250,7 @@ export const QrModal: React.FC<QrModalProps> = ({
           </p>
 
           <p className="mt-1.5 text-[11px] font-mono opacity-70 truncate max-w-sm mx-auto">
-            {domainMode === 'production' ? 'campuslink.app' : 'localhost'}/events/{targetSlug}
+            {cleanBaseHost}/events/{targetSlug}
           </p>
         </div>
 

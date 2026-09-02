@@ -69,7 +69,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             />
             <div className="min-w-0 flex-1">
               <span className="text-[10px] font-mono uppercase font-bold tracking-wider text-zinc-400">
-                campuslink.app/@{committee.handle}
+                @{committee.handle} • Official Event Link
               </span>
               <h4 className="text-sm font-black font-heading text-white truncate">{event.title}</h4>
               <p className="text-xs text-slate-300 line-clamp-2 mt-0.5">{event.tagline} — {event.venue}</p>

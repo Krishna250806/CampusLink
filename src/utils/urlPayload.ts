@@ -9,6 +9,7 @@ export function encodeEventPayload(event: Partial<Event>, committee?: Partial<Co
   try {
     const obj: Record<string, any> = {};
 
+    if (event.id) obj.id = event.id;
     if (event.title) obj.t = event.title;
     if (event.tagline) obj.g = event.tagline;
     if (event.description) obj.d = event.description.slice(0, 150);
@@ -26,7 +27,7 @@ export function encodeEventPayload(event: Partial<Event>, committee?: Partial<Co
 
     if (committee?.name) obj.cn = committee.name;
     if (committee?.handle) obj.ch = committee.handle;
-    if (committee?.logoUrl && !committee.logoUrl.startsWith('data:')) obj.cl = committee.logoUrl;
+    if (committee?.logoUrl && committee.logoUrl.length < 500) obj.cl = committee.logoUrl;
 
     if (Array.isArray(event.links) && event.links.length > 0) {
       obj.l = event.links.slice(0, 6).map(link => ({
@@ -89,6 +90,7 @@ export function decodeEventPayload(encoded: string): { event: Partial<Event>; co
     })) : [];
 
     const event: Partial<Event> = {
+      id: parsed.id || parsed.eventId,
       title: parsed.t || parsed.title,
       tagline: parsed.g || parsed.tagline,
       description: parsed.d || parsed.description,

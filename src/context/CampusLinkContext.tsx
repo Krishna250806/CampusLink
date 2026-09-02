@@ -952,10 +952,10 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let updatedTargetComm: Committee | undefined;
 
     setCommittees(prev => {
-      const exists = prev.some(c => c.id === committeeId);
+      const exists = prev.some(c => c.id === committeeId || c.id === 'comm_main');
       const updated = exists
         ? prev.map(c => {
-            if (c.id === committeeId) {
+            if (c.id === committeeId || c.id === 'comm_main') {
               const merged = { ...c, ...partial };
               updatedTargetComm = merged;
               return merged;
@@ -968,6 +968,10 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       safeLocalStorageSet(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(updated));
       return updated;
     });
+
+    if (partial.logoUrl) {
+      DEFAULT_FALLBACK_COMMITTEE.logoUrl = partial.logoUrl;
+    }
 
     if (isSupabaseConfigured() && updatedTargetComm) {
       supabase.from('committees').upsert({

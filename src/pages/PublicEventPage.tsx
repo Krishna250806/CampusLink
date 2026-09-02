@@ -143,8 +143,13 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     }
   }
 
-  // Find local context matching event
-  const localEvent = targetSlug ? events.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) : undefined;
+  // Find local context matching event (by slug, by ID, or by decoded URL payload ID)
+  const localEvent = targetSlug
+    ? (
+        events.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) ||
+        (decodedEventFromUrl?.id ? events.find(e => e.id === decodedEventFromUrl.id) : undefined)
+      )
+    : undefined;
 
   // Match Event cleanly (prefers live builder preview > fresh remote Supabase fetch > fresh local storage edit > decoded URL payload > fallback)
   const event: Event = customEvent
@@ -154,16 +159,22 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     || (targetSlug ? undefined : events[0])
     || DEFAULT_FALLBACK_EVENT;
 
-  // Match Committee based on resolved event or handle
+  // Match Committee based on resolved event, handle, or active workspace committee
   const matchedCommittee = committees.find(c => c.id === event?.committeeId)
     || committees.find(c => c.handle?.toLowerCase() === (handle || '').toLowerCase())
-    || (event as any)?.committee;
+    || committees.find(c => c.logoUrl && !c.logoUrl.includes('unsplash'))
+    || committees[0];
+
+  const committeeLogo = matchedCommittee?.logoUrl
+    || (event as any)?.committeeLogoUrl
+    || committees.find(c => c.logoUrl)?.logoUrl
+    || DEFAULT_FALLBACK_COMMITTEE.logoUrl;
 
   const committee: Committee = {
     id: matchedCommittee?.id || event?.committeeId || DEFAULT_FALLBACK_COMMITTEE.id,
-    handle: (event as any)?.committeeHandle || matchedCommittee?.handle || (handle && handle !== 'events' ? handle : DEFAULT_FALLBACK_COMMITTEE.handle),
-    name: (event as any)?.committeeName || matchedCommittee?.name || DEFAULT_FALLBACK_COMMITTEE.name,
-    logoUrl: matchedCommittee?.logoUrl || (event as any)?.committeeLogoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl,
+    handle: matchedCommittee?.handle || (event as any)?.committeeHandle || (handle && handle !== 'events' ? handle : DEFAULT_FALLBACK_COMMITTEE.handle),
+    name: matchedCommittee?.name || (event as any)?.committeeName || DEFAULT_FALLBACK_COMMITTEE.name,
+    logoUrl: committeeLogo,
     tagline: matchedCommittee?.tagline || DEFAULT_FALLBACK_COMMITTEE.tagline,
     description: matchedCommittee?.description || DEFAULT_FALLBACK_COMMITTEE.description,
     socials: matchedCommittee?.socials || DEFAULT_FALLBACK_COMMITTEE.socials,

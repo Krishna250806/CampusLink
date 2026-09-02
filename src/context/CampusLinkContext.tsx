@@ -1052,17 +1052,13 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     if (isSupabaseConfigured() && updatedTargetComm) {
       try {
-        const cleanLogo = updatedTargetComm.logoUrl?.startsWith('data:') && updatedTargetComm.logoUrl.length > 50000
-          ? DEFAULT_FALLBACK_COMMITTEE.logoUrl
-          : updatedTargetComm.logoUrl;
-
         supabase.from('committees').upsert({
           id: updatedTargetComm.id,
           user_id: user?.id || updatedTargetComm.userId || 'comm_main',
           name: updatedTargetComm.name,
           handle: updatedTargetComm.handle,
           tagline: updatedTargetComm.tagline || '',
-          logo_url: cleanLogo || '',
+          logo_url: updatedTargetComm.logoUrl || '',
           description: updatedTargetComm.description || '',
           socials: updatedTargetComm.socials || {}
         }).then(({ error }) => {

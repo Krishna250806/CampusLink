@@ -525,9 +525,9 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
             .filter((l: EventLink) => l.visible)
             .reduce((acc: EventLink[], current: EventLink) => {
               const isDuplicateCta = Boolean(
-                (event.primaryCtaUrl && current.url && current.url.trim().toLowerCase() === event.primaryCtaUrl.trim().toLowerCase()) ||
-                current.type === 'registration' ||
-                (current.title && current.title.toLowerCase().includes('register'))
+                event.primaryCtaUrl &&
+                current.url &&
+                current.url.trim().replace(/\/+$/, '').toLowerCase() === event.primaryCtaUrl.trim().replace(/\/+$/, '').toLowerCase()
               );
               const isDuplicate = acc.some(l => l.id === current.id || (l.title?.toLowerCase() === current.title?.toLowerCase() && l.url === current.url));
               if (!isDuplicateCta && !isDuplicate) {

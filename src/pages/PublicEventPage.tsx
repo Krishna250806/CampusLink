@@ -186,24 +186,29 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   const matchedCommittee = committeeList.find(c => c.id === event?.committeeId)
     || (cleanHandleParam ? committeeList.find(c => c.handle?.toLowerCase() === cleanHandleParam) : undefined)
     || committeeList.find(c => c.userId && event?.userId && c.userId === event.userId)
-    || (activeCommittee?.id === event?.committeeId ? activeCommittee : undefined)
-    || committeeList.find(c => c.id !== 'comm_main');
+    || activeCommittee
+    || committeeList[0]
+    || DEFAULT_FALLBACK_COMMITTEE;
 
-  const rawLogo = (matchedCommittee?.logoUrl && matchedCommittee.logoUrl !== DEFAULT_FALLBACK_COMMITTEE.logoUrl)
-    ? matchedCommittee.logoUrl
-    : ((event as any)?.committeeLogoUrl || (event as any)?.committee?.logoUrl || matchedCommittee?.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl);
+  const rawLogo = matchedCommittee?.logoUrl
+    || (event as any)?.committeeLogoUrl
+    || (event as any)?.committee?.logoUrl
+    || DEFAULT_FALLBACK_COMMITTEE.logoUrl;
 
   const committeeLogo = (rawLogo && rawLogo.startsWith('http'))
-    ? `${rawLogo}${rawLogo.includes('?') ? '&' : '?'}v=${matchedCommittee?.updatedAt || Date.now()}`
+    ? `${rawLogo}${rawLogo.includes('?') ? '&' : '?'}v=${matchedCommittee?.updatedAt || '1'}`
     : (rawLogo || DEFAULT_FALLBACK_COMMITTEE.logoUrl);
 
-  const committeeName = (matchedCommittee?.name && matchedCommittee.name !== DEFAULT_FALLBACK_COMMITTEE.name)
-    ? matchedCommittee.name
-    : ((event as any)?.committeeName || (event as any)?.committee?.name || matchedCommittee?.name || DEFAULT_FALLBACK_COMMITTEE.name);
+  const committeeName = matchedCommittee?.name
+    || (event as any)?.committeeName
+    || (event as any)?.committee?.name
+    || DEFAULT_FALLBACK_COMMITTEE.name;
 
-  const committeeHandle = (matchedCommittee?.handle && matchedCommittee.handle !== DEFAULT_FALLBACK_COMMITTEE.handle)
-    ? matchedCommittee.handle
-    : ((event as any)?.committeeHandle || (event as any)?.committee?.handle || matchedCommittee?.handle || (cleanHandleParam && cleanHandleParam !== 'events' ? cleanHandleParam : undefined) || DEFAULT_FALLBACK_COMMITTEE.handle);
+  const committeeHandle = matchedCommittee?.handle
+    || (event as any)?.committeeHandle
+    || (event as any)?.committee?.handle
+    || (cleanHandleParam && cleanHandleParam !== 'events' ? cleanHandleParam : undefined)
+    || DEFAULT_FALLBACK_COMMITTEE.handle;
 
   const committee: Committee = {
     id: matchedCommittee?.id || event?.committeeId || DEFAULT_FALLBACK_COMMITTEE.id,
@@ -504,9 +509,9 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
             .filter((l: EventLink) => l.visible)
             .reduce((acc: EventLink[], current: EventLink) => {
               const isDuplicateCta = Boolean(
-                event.primaryCtaUrl &&
-                current.url &&
-                current.url.trim().toLowerCase() === event.primaryCtaUrl.trim().toLowerCase()
+                (event.primaryCtaUrl && current.url && current.url.trim().toLowerCase() === event.primaryCtaUrl.trim().toLowerCase()) ||
+                current.type === 'registration' ||
+                (current.title && current.title.toLowerCase().includes('register'))
               );
               const isDuplicate = acc.some(l => l.id === current.id || (l.title?.toLowerCase() === current.title?.toLowerCase() && l.url === current.url));
               if (!isDuplicateCta && !isDuplicate) {

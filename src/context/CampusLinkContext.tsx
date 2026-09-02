@@ -46,6 +46,10 @@ interface CampusLinkContextType {
   // Committee Actions
   updateCommittee: (committeeId: string, partial: Partial<Committee>) => void;
   
+  // Workspace datasets
+  allCommittees: Committee[];
+  allEvents: Event[];
+  
   // Analytics / Visitor Tracking
   recordPageView: (eventId: string) => void;
   recordLinkClick: (eventId: string, linkId: string) => void;
@@ -691,12 +695,13 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setEvents(prev => {
       const exists = prev.some(e => e.id === eventId);
+      const targetCommId = (activeCommittee.id && activeCommittee.id !== 'comm_main') ? activeCommittee.id : (user?.committeeId || 'comm_main');
       const list = exists ? prev : [{
         ...DEFAULT_FALLBACK_EVENT,
         ...partial,
         id: eventId,
         userId: user?.id || activeCommittee.userId || 'comm_main',
-        committeeId: activeCommittee.id || user?.committeeId || 'comm_main'
+        committeeId: targetCommId
       }, ...prev];
       const updated = list.map(e => {
         if (e.id === eventId) {
@@ -704,7 +709,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             ...e,
             ...partial,
             userId: e.userId || user?.id || activeCommittee.userId || 'comm_main',
-            committeeId: e.committeeId || activeCommittee.id || user?.committeeId || 'comm_main',
+            committeeId: (activeCommittee.id && activeCommittee.id !== 'comm_main') ? activeCommittee.id : (e.committeeId || user?.committeeId || 'comm_main'),
             announcements: Array.isArray(partial.announcements) ? partial.announcements : (e.announcements || []),
             links: Array.isArray(partial.links) ? partial.links : (e.links || []),
             updatedAt: new Date().toISOString()
@@ -952,17 +957,29 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let updatedTargetComm: Committee | undefined;
 
     setCommittees(prev => {
-      const exists = prev.some(c => c.id === committeeId || c.id === 'comm_main');
-      const updated = exists
-        ? prev.map(c => {
-            if (c.id === committeeId || c.id === 'comm_main') {
-              const merged = { ...c, ...partial };
-              updatedTargetComm = merged;
-              return merged;
-            }
-            return c;
-          })
-        : [{ ...activeCommittee, ...partial, id: committeeId }, ...prev];
+      const targetId = committeeId || user?.committeeId || activeCommittee.id;
+      const exists = prev.some(c => c.id === targetId || (user?.id && c.userId === user.id));
+      let updated: Committee[];
+
+      if (exists) {
+        updated = prev.map(c => {
+          if (c.id === targetId || (user?.id && c.userId === user.id)) {
+            const merged = { ...c, ...partial, id: c.id || targetId, userId: c.userId || user?.id };
+            updatedTargetComm = merged;
+            return merged;
+          }
+          return c;
+        });
+      } else {
+        const newComm: Committee = {
+          ...activeCommittee,
+          ...partial,
+          id: targetId,
+          userId: user?.id
+        };
+        updatedTargetComm = newComm;
+        updated = [newComm, ...prev];
+      }
 
       safeLocalStorageSet(getUserCommitteesKey(user?.id), JSON.stringify(updated));
       safeLocalStorageSet(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(updated));
@@ -972,10 +989,13 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (partial.logoUrl) {
       DEFAULT_FALLBACK_COMMITTEE.logoUrl = partial.logoUrl;
     }
+    if (partial.name) {
+      DEFAULT_FALLBACK_COMMITTEE.name = partial.name;
+    }
 
     if (isSupabaseConfigured() && updatedTargetComm) {
       supabase.from('committees').upsert({
-        id: committeeId,
+        id: updatedTargetComm.id,
         user_id: user?.id || updatedTargetComm.userId || 'comm_main',
         name: updatedTargetComm.name,
         handle: updatedTargetComm.handle,
@@ -1041,6 +1061,8 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         user,
         committees: userCommittees,
         events: userEvents,
+        allCommittees: committees,
+        allEvents: events,
         activeCommittee,
         activeEvent,
         analytics,

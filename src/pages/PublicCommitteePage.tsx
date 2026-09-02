@@ -5,13 +5,22 @@ import { ShieldCheck, Calendar, ExternalLink, ArrowLeft, Sparkles, Globe, Messag
 
 export const PublicCommitteePage: React.FC = () => {
   const { handle } = useParams<{ handle?: string }>();
-  const { committees, events } = useCampusLink();
+  const { committees, events, allCommittees, allEvents, activeCommittee } = useCampusLink();
   const [activeTab, setActiveTab] = useState<'events' | 'about'>('events');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const committee = committees.find(c => c.handle.toLowerCase() === (handle || 'technova').toLowerCase()) || committees[0];
-  const committeeEvents = events.filter(e => 
-    e.committeeId === committee.id && 
+  const targetHandle = (handle || '').toLowerCase().replace(/^@/, '');
+  const committeeList = allCommittees && allCommittees.length > 0 ? allCommittees : committees;
+  const eventList = allEvents && allEvents.length > 0 ? allEvents : events;
+
+  const committee = committeeList.find(c => c.handle.toLowerCase() === targetHandle)
+    || (activeCommittee && activeCommittee.handle.toLowerCase() === targetHandle ? activeCommittee : undefined)
+    || committeeList.find(c => c.id !== 'comm_main')
+    || activeCommittee
+    || committeeList[0];
+
+  const committeeEvents = eventList.filter(e => 
+    (e.committeeId === committee.id || (committee.handle && e.slug?.startsWith(committee.handle))) && 
     (e.title.toLowerCase().includes(searchQuery.toLowerCase()) || e.tagline.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 

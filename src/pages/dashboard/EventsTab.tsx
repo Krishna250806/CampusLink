@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCampusLink } from '../../context/CampusLinkContext';
-import { Plus, Edit3, Trash2, MapPin, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Plus, Edit3, Trash2, MapPin, ExternalLink, CheckCircle2, QrCode } from 'lucide-react';
+import { QrModal } from '../../components/common/QrModal';
+import type { Event } from '../../types/campuslink';
 
 export const EventsTab: React.FC = () => {
   const { events, activeCommittee, activeEvent, setActiveEventId, deleteEvent } = useCampusLink();
   const navigate = useNavigate();
+
+  const [selectedQrEvent, setSelectedQrEvent] = useState<Event | null>(null);
 
   const committeeEvents = events.filter(e => e.committeeId === activeCommittee.id);
 
@@ -80,22 +84,33 @@ export const EventsTab: React.FC = () => {
                     }}
                     className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-xs font-semibold text-slate-300 rounded-xl transition-all cursor-pointer"
                   >
-                    Set as Active Event
+                    Set Active
                   </button>
                 )}
                 {isActive && (
                   <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" /> Active on Dashboard
+                    <CheckCircle2 className="w-4 h-4" /> Active Target
                   </span>
                 )}
 
                 <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedQrEvent(evt);
+                    }}
+                    className="p-2 text-slate-400 hover:text-cyan-400 rounded-lg hover:bg-neutral-800 transition-colors cursor-pointer"
+                    title="Get Event QR Code"
+                  >
+                    <QrCode className="w-4 h-4" />
+                  </button>
+
                   <a
                     href={`/events/${evt.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
-                    className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-neutral-800"
+                    className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors"
                     title="View Live Event"
                   >
                     <ExternalLink className="w-4 h-4" />
@@ -106,7 +121,7 @@ export const EventsTab: React.FC = () => {
                       e.stopPropagation();
                       navigate(`/dashboard/builder/${evt.id}`);
                     }}
-                    className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-neutral-800 cursor-pointer"
+                    className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-neutral-800 cursor-pointer transition-colors"
                     title="Edit Event Builder"
                   >
                     <Edit3 className="w-4 h-4" />
@@ -119,7 +134,7 @@ export const EventsTab: React.FC = () => {
                         deleteEvent(evt.id);
                       }
                     }}
-                    className="p-2 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-neutral-800 cursor-pointer"
+                    className="p-2 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-neutral-800 cursor-pointer transition-colors"
                     title="Delete Event"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -130,6 +145,14 @@ export const EventsTab: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Embedded QR Modal */}
+      <QrModal
+        isOpen={selectedQrEvent !== null}
+        onClose={() => setSelectedQrEvent(null)}
+        event={selectedQrEvent}
+        committee={activeCommittee}
+      />
     </div>
   );
 };

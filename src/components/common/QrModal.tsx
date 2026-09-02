@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Modal } from './Modal';
 import type { Event, Committee } from '../../types/campuslink';
-import { Download, Printer, Copy, Check, QrCode } from 'lucide-react';
+import { Download, Printer, Copy, Check, QrCode, Globe, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_FALLBACK_COMMITTEE, DEFAULT_FALLBACK_EVENT } from '../../context/CampusLinkContext';
 import { encodeEventPayload } from '../../utils/urlPayload';
@@ -23,6 +23,7 @@ export const QrModal: React.FC<QrModalProps> = ({
   const [dataUrl, setDataUrl] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
   const [frameStyle, setFrameStyle] = useState<'minimal' | 'poster' | 'dark'>('poster');
+  const [domainMode, setDomainMode] = useState<'production' | 'origin'>('production');
 
   const event = inputEvent || DEFAULT_FALLBACK_EVENT;
   const committee = inputCommittee || DEFAULT_FALLBACK_COMMITTEE;
@@ -32,10 +33,12 @@ export const QrModal: React.FC<QrModalProps> = ({
   const encodedPayload = encodeEventPayload(event, committee);
   const payloadQuery = encodedPayload ? `?d=${encodedPayload}` : '';
 
-  // Clean, high-contrast, instant-scannable public URL for camera scanners
-  const publicUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/events/${targetSlug}${payloadQuery}`
-    : `https://campuslink.app/events/${targetSlug}${payloadQuery}`;
+  // Public URL calculation: default to production domain so mobile phone cameras can scan cleanly
+  const publicUrl = domainMode === 'production'
+    ? `https://campuslink.app/events/${targetSlug}${payloadQuery}`
+    : (typeof window !== 'undefined'
+        ? `${window.location.origin}/events/${targetSlug}${payloadQuery}`
+        : `https://campuslink.app/events/${targetSlug}${payloadQuery}`);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -44,27 +47,41 @@ export const QrModal: React.FC<QrModalProps> = ({
 
     const generateQr = async () => {
       try {
-        const qrFn = (QRCode as any)?.toDataURL || (QRCode as any)?.default?.toDataURL || QRCode;
-        if (typeof qrFn === 'function') {
-          const url = await qrFn(publicUrl, {
-            width: 400,
-            margin: 4,
-            color: {
-              dark: frameStyle === 'dark' ? '#00f0ff' : '#000000',
-              light: frameStyle === 'dark' ? '#090d16' : '#ffffff'
-            },
-            errorCorrectionLevel: 'M'
-          });
-          if (isMounted) setDataUrl(url);
-        } else {
-          // Fallback to QR server API if local canvas fails
-          const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=4&data=${encodeURIComponent(publicUrl)}`;
-          if (isMounted) setDataUrl(fallbackUrl);
+        const toDataURL = (QRCode as any)?.toDataURL || (QRCode as any)?.default?.toDataURL;
+        const toString = (QRCode as any)?.toString || (QRCode as any)?.default?.toString;
+
+        const darkColor = frameStyle === 'dark' ? '#00f0ff' : '#000000';
+        const lightColor = frameStyle === 'dark' ? '#090d16' : '#ffffff';
+
+        const opts = {
+          width: 400,
+          margin: 4,
+          color: { dark: darkColor, light: lightColor },
+          errorCorrectionLevel: 'M' as const
+        };
+
+        let generatedUrl = '';
+
+        // Primary: Canvas PNG Data URL
+        if (typeof toDataURL === 'function') {
+          try {
+            generatedUrl = await toDataURL(publicUrl, opts);
+          } catch (e) {}
+        }
+
+        // Secondary Fallback: Pure Vector SVG Data URL (works 100% locally without canvas context)
+        if (!generatedUrl && typeof toString === 'function') {
+          try {
+            const svgStr = await toString(publicUrl, { ...opts, type: 'svg' });
+            generatedUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgStr)}`;
+          } catch (e) {}
+        }
+
+        if (isMounted) {
+          setDataUrl(generatedUrl);
         }
       } catch (err) {
         console.error('QR code generation error:', err);
-        const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=4&data=${encodeURIComponent(publicUrl)}`;
-        if (isMounted) setDataUrl(fallbackUrl);
       }
     };
 
@@ -99,26 +116,56 @@ export const QrModal: React.FC<QrModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Print-Ready Event QR Code" maxWidth="md">
-      <div className="space-y-6 text-center">
-        {/* Frame Style Selector */}
-        <div className="flex justify-center gap-2 p-1.5 bg-slate-950/80 rounded-2xl border border-white/10 shadow-inner">
-          {(['poster', 'minimal', 'dark'] as const).map(style => {
-            const isActive = frameStyle === style;
-            const styleLabel = style === 'poster' ? 'Poster Frame' : style === 'minimal' ? 'Minimal White' : 'Cyber Dark';
-            const btnActive = 'bg-indigo-600 text-white shadow-md';
-            const btnInactive = 'text-slate-300 hover:text-white';
-            return (
-              <button
-                key={style}
-                onClick={() => setFrameStyle(style)}
-                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                  isActive ? btnActive : btnInactive
-                }`}
-              >
-                {styleLabel}
-              </button>
-            );
-          })}
+      <div className="space-y-5 text-center">
+        
+        {/* Domain Mode & Frame Style Selectors */}
+        <div className="space-y-2">
+          {/* Domain Mode Switcher */}
+          <div className="flex justify-center gap-2 p-1 bg-slate-950/80 rounded-2xl border border-white/10 shadow-inner max-w-xs mx-auto">
+            <button
+              onClick={() => setDomainMode('production')}
+              className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                domainMode === 'production'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Scannable by any mobile camera anywhere"
+            >
+              <Globe className="w-3.5 h-3.5" /> Mobile Live Domain
+            </button>
+            <button
+              onClick={() => setDomainMode('origin')}
+              className={`flex-1 py-1.5 px-3 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                domainMode === 'origin'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Local dev origin for local browser testing"
+            >
+              <Monitor className="w-3.5 h-3.5" /> Local Dev URL
+            </button>
+          </div>
+
+          {/* Frame Style Selector */}
+          <div className="flex justify-center gap-2 p-1.5 bg-slate-950/80 rounded-2xl border border-white/10 shadow-inner">
+            {(['poster', 'minimal', 'dark'] as const).map(style => {
+              const isActive = frameStyle === style;
+              const styleLabel = style === 'poster' ? 'Poster Frame' : style === 'minimal' ? 'Minimal White' : 'Cyber Dark';
+              const btnActive = 'bg-indigo-600 text-white shadow-md';
+              const btnInactive = 'text-slate-300 hover:text-white';
+              return (
+                <button
+                  key={style}
+                  onClick={() => setFrameStyle(style)}
+                  className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    isActive ? btnActive : btnInactive
+                  }`}
+                >
+                  {styleLabel}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Printable Card Area */}
@@ -158,13 +205,13 @@ export const QrModal: React.FC<QrModalProps> = ({
             <QrCode className="w-4 h-4 text-cyan-300" /> Scan to Register & View Details
           </p>
 
-          <p className="mt-1.5 text-[11px] font-mono opacity-70">
-            campuslink.app/@{committee.handle || 'org'}/{targetSlug}
+          <p className="mt-1.5 text-[11px] font-mono opacity-70 truncate max-w-sm mx-auto">
+            {domainMode === 'production' ? 'campuslink.app' : 'localhost'}/events/{targetSlug}
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
           <button
             onClick={handleDownloadPng}
             className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-indigo-600/30 active:scale-95 cursor-pointer"
@@ -191,5 +238,3 @@ export const QrModal: React.FC<QrModalProps> = ({
     </Modal>
   );
 };
-
-

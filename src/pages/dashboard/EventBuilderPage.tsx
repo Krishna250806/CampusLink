@@ -15,10 +15,12 @@ import {
   Palette,
   Upload,
   Image as ImageIcon,
-  Check
+  Check,
+  QrCode
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
+import { QrModal } from '../../components/common/QrModal';
 import { SVG_BACKGROUND_PRESETS } from '../../utils/svgBackgrounds';
 import { isoToDatetimeLocal, datetimeLocalToIso } from '../../utils/dateUtils';
 
@@ -89,6 +91,7 @@ export const EventBuilderPage: React.FC = () => {
   const [draft, setDraft] = useState<Partial<Event>>(initialEvent);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
+  const [isQrOpen, setIsQrOpen] = useState<boolean>(false);
 
   // Form Field Updaters
   const updateField = (key: keyof Event, val: any) => {
@@ -195,13 +198,31 @@ export const EventBuilderPage: React.FC = () => {
           </button>
         </div>
 
-        <button
-          onClick={handlePublish}
-          className="hidden sm:flex items-center gap-2 px-6 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-neutral-950 font-bold text-xs rounded-xl shadow-[inset_0_2px_0_0_rgba(255,255,255,1)] transition-all active:scale-95 cursor-pointer"
-        >
-          <Rocket className="w-4 h-4 text-emerald-500" /> {isEditing ? 'Save Changes' : 'Publish Event'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsQrOpen(true)}
+            className="p-2.5 bg-neutral-800 hover:bg-neutral-700 text-slate-200 border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Get Event QR Code"
+          >
+            <QrCode className="w-4 h-4 text-cyan-400" />
+            <span className="hidden md:inline">QR Code</span>
+          </button>
+
+          <button
+            onClick={handlePublish}
+            className="hidden sm:flex items-center gap-2 px-6 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-neutral-950 font-bold text-xs rounded-xl shadow-[inset_0_2px_0_0_rgba(255,255,255,1)] transition-all active:scale-95 cursor-pointer"
+          >
+            <Rocket className="w-4 h-4 text-emerald-500" /> {isEditing ? 'Save Changes' : 'Publish Event'}
+          </button>
+        </div>
       </header>
+
+      <QrModal
+        isOpen={isQrOpen}
+        onClose={() => setIsQrOpen(false)}
+        event={draft as Event}
+        committee={safeCommittee}
+      />
 
       {/* Main Split Layout: Editor Left | Phone Mockup Right */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-0 overflow-hidden">

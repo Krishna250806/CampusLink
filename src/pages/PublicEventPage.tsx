@@ -46,6 +46,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
 
   const targetSlug = (eventSlug || '').toLowerCase();
   const [remoteEvent, setRemoteEvent] = useState<Event | null>(null);
+  const [remoteCommittee, setRemoteCommittee] = useState<Committee | null>(null);
 
   const committeeList = allCommittees && allCommittees.length > 0 ? allCommittees : committees;
   const eventList = allEvents && allEvents.length > 0 ? allEvents : events;
@@ -89,21 +90,34 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
             announcements: Array.isArray(data.announcements) ? data.announcements : [],
             schedule: Array.isArray(data.schedule) ? data.schedule : [],
             rulebook: Array.isArray(data.rulebook) ? data.rulebook : [],
-            links: Array.isArray(data.links) && data.links.length > 0 ? data.links : [
-              {
-                id: `lnk_${data.id}_1`,
-                title: data.primary_cta_text || 'Register Now',
-                url: data.primary_cta_url || 'https://forms.google.com',
-                icon: 'UserPlus',
-                type: 'registration',
-                featured: true,
-                visible: true,
-                sortOrder: 1,
-                clickCount: 0
-              }
-            ]
+            links: Array.isArray(data.links) && data.links.length > 0 ? data.links : []
           };
           setRemoteEvent(fetched);
+
+          // Fetch matching remote committee details from Supabase committees table
+          if (data.committee_id || data.user_id) {
+            const { data: commData } = await supabase
+              .from('committees')
+              .select('*')
+              .or(`id.eq.${data.committee_id},user_id.eq.${data.user_id}`)
+              .maybeSingle();
+
+            if (commData) {
+              setRemoteCommittee({
+                id: commData.id,
+                userId: commData.user_id,
+                handle: commData.handle || 'org',
+                name: commData.name || 'Student Committee',
+                tagline: commData.tagline || '',
+                logoUrl: commData.logo_url || '',
+                coverUrl: commData.cover_url || '',
+                description: commData.description || '',
+                socials: commData.socials || {},
+                members: [],
+                verified: Boolean(commData.verified)
+              });
+            }
+          }
         }
       } catch (err) {}
     };
@@ -181,11 +195,13 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     || eventList[0]
     || DEFAULT_FALLBACK_EVENT;
 
-  // Match Committee based on resolved event, handle, or active workspace committee
+  // Match Committee based on resolved event, handle, remote Supabase committee, or active workspace committee
   const cleanHandleParam = (handle || '').toLowerCase().replace(/^@/, '');
   const matchedCommittee = committeeList.find(c => c.id === event?.committeeId)
+    || (remoteCommittee && (remoteCommittee.id === event?.committeeId || remoteCommittee.userId === event?.userId) ? remoteCommittee : undefined)
     || (cleanHandleParam ? committeeList.find(c => c.handle?.toLowerCase() === cleanHandleParam) : undefined)
     || committeeList.find(c => c.userId && event?.userId && c.userId === event.userId)
+    || remoteCommittee
     || activeCommittee
     || committeeList[0]
     || DEFAULT_FALLBACK_COMMITTEE;

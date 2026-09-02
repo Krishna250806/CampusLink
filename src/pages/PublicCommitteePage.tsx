@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCampusLink, DEFAULT_FALLBACK_COMMITTEE } from '../context/CampusLinkContext';
 import { ShieldCheck, Calendar, ExternalLink, ArrowLeft, Sparkles, Globe, MessageSquare, Share2, Search } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import type { Committee } from '../types/campuslink';
 
 export const PublicCommitteePage: React.FC = () => {
   const { handle } = useParams<{ handle?: string }>();
   const { committees, events, allCommittees, allEvents, activeCommittee } = useCampusLink();
   const [activeTab, setActiveTab] = useState<'events' | 'about'>('events');
   const [searchQuery, setSearchQuery] = useState('');
+  const [remoteCommittee, setRemoteCommittee] = useState<Committee | null>(null);
 
   // Auto-refetch trigger on visibility / focus / periodic interval so open tabs stay 100% synced with dashboard edits
   const [, setTick] = useState(0);
@@ -29,9 +32,43 @@ export const PublicCommitteePage: React.FC = () => {
   const committeeList = allCommittees && allCommittees.length > 0 ? allCommittees : committees;
   const eventList = allEvents && allEvents.length > 0 ? allEvents : events;
 
+  // Supabase Committee Sync for public visitors and refreshes
+  useEffect(() => {
+    if (!targetHandle || !isSupabaseConfigured()) return;
+    const fetchSupabaseCommittee = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('committees')
+          .select('*')
+          .or(`handle.eq.${targetHandle},id.eq.${targetHandle}`)
+          .maybeSingle();
+
+        if (data && !error) {
+          setRemoteCommittee({
+            id: data.id,
+            userId: data.user_id,
+            handle: data.handle || targetHandle,
+            name: data.name || 'Student Committee',
+            tagline: data.tagline || '',
+            logoUrl: data.logo_url || '',
+            coverUrl: data.cover_url || '',
+            description: data.description || '',
+            socials: data.socials || {},
+            members: [],
+            verified: Boolean(data.verified)
+          });
+        }
+      } catch (err) {}
+    };
+
+    fetchSupabaseCommittee();
+    window.addEventListener('focus', fetchSupabaseCommittee);
+    return () => window.removeEventListener('focus', fetchSupabaseCommittee);
+  }, [targetHandle]);
+
   const committee = committeeList.find(c => c.handle.toLowerCase() === targetHandle)
+    || remoteCommittee
     || (activeCommittee && activeCommittee.handle.toLowerCase() === targetHandle ? activeCommittee : undefined)
-    || committeeList.find(c => c.id !== 'comm_main')
     || activeCommittee
     || committeeList[0]
     || DEFAULT_FALLBACK_COMMITTEE;

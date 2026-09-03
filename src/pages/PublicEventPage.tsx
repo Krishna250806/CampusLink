@@ -75,77 +75,95 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       } catch (e) {}
 
       // 2. Check Supabase DB if configured
-      if (isSupabaseConfigured() && targetSlug) {
-        try {
-          const { data, error } = await supabase
-            .from('events')
-            .select('*')
-            .or(`slug.eq.${targetSlug},id.eq.${targetSlug}`)
-            .maybeSingle();
+      if (isSupabaseConfigured()) {
+        const lookup = targetSlug || decodedEventFromUrl?.slug || decodedEventFromUrl?.id;
+        if (lookup) {
+          try {
+            let { data, error } = await supabase
+              .from('events')
+              .select('*')
+              .or(`slug.eq.${lookup},id.eq.${lookup}`)
+              .maybeSingle();
 
-          if (data && !error && isMounted) {
-            const fetched: Event = {
-              id: data.id,
-              userId: data.user_id,
-              committeeId: data.committee_id,
-              slug: data.slug,
-              title: data.title,
-              tagline: data.tagline || '',
-              description: data.description || '',
-              posterUrl: data.poster_url || '',
-              startDate: data.start_date,
-              endDate: data.end_date,
-              venue: data.venue || '',
-              address: data.address || '',
-              mapsUrl: data.maps_url || '',
-              primaryCtaText: data.primary_cta_text || 'Register Now',
-              primaryCtaUrl: data.primary_cta_url || '',
-              organizerContact: data.organizer_contact || {},
-              themeId: data.theme_id || 'popbrutalist',
-              customAccentColor: data.custom_accent_color || '#fafafa',
-              bgSvgPattern: data.bg_svg_pattern || '',
-              status: data.status || 'published',
-              createdAt: data.created_at || new Date().toISOString(),
-              updatedAt: data.updated_at || new Date().toISOString(),
-              announcements: Array.isArray(data.announcements) ? data.announcements : [],
-              schedule: Array.isArray(data.schedule) ? data.schedule : [],
-              rulebook: Array.isArray(data.rulebook) ? data.rulebook : [],
-              links: Array.isArray(data.links) && data.links.length > 0 ? data.links : []
-            };
-            setRemoteEvent(fetched);
-
-            if (data.committee_id || data.user_id) {
-              const { data: commData } = await supabase
-                .from('committees')
+            if (!data) {
+              const { data: altData } = await supabase
+                .from('events')
                 .select('*')
-                .or(`id.eq.${data.committee_id},user_id.eq.${data.user_id}`)
+                .ilike('slug', `%${lookup}%`)
+                .limit(1)
                 .maybeSingle();
+              if (altData) data = altData;
+            }
 
-              if (commData && isMounted) {
-                setRemoteCommittee({
-                  id: commData.id,
-                  userId: commData.user_id,
-                  handle: commData.handle || 'org',
-                  name: commData.name || 'Student Committee',
-                  tagline: commData.tagline || '',
-                  logoUrl: commData.logo_url || '',
-                  coverUrl: commData.cover_url || '',
-                  description: commData.description || '',
-                  socials: commData.socials || {},
-                  members: [],
-                  verified: Boolean(commData.verified)
-                });
+            if (data && !error && isMounted) {
+              const fetched: Event = {
+                id: data.id,
+                userId: data.user_id,
+                committeeId: data.committee_id,
+                slug: data.slug,
+                title: data.title,
+                tagline: data.tagline || '',
+                description: data.description || '',
+                posterUrl: data.poster_url || '',
+                startDate: data.start_date,
+                endDate: data.end_date,
+                venue: data.venue || '',
+                address: data.address || '',
+                mapsUrl: data.maps_url || '',
+                primaryCtaText: data.primary_cta_text || 'Register Now',
+                primaryCtaUrl: data.primary_cta_url || '',
+                organizerContact: data.organizer_contact || {},
+                themeId: data.theme_id || 'popbrutalist',
+                customAccentColor: data.custom_accent_color || '#fafafa',
+                bgSvgPattern: data.bg_svg_pattern || '',
+                status: data.status || 'published',
+                createdAt: data.created_at || new Date().toISOString(),
+                updatedAt: data.updated_at || new Date().toISOString(),
+                announcements: Array.isArray(data.announcements) ? data.announcements : [],
+                schedule: Array.isArray(data.schedule) ? data.schedule : [],
+                rulebook: Array.isArray(data.rulebook) ? data.rulebook : [],
+                links: Array.isArray(data.links) && data.links.length > 0 ? data.links : []
+              };
+              setRemoteEvent(fetched);
+
+              if (data.committee_id || data.user_id) {
+                const { data: commData } = await supabase
+                  .from('committees')
+                  .select('*')
+                  .or(`id.eq.${data.committee_id},user_id.eq.${data.user_id}`)
+                  .maybeSingle();
+
+                if (commData && isMounted) {
+                  setRemoteCommittee({
+                    id: commData.id,
+                    userId: commData.user_id,
+                    handle: commData.handle || 'org',
+                    name: commData.name || 'Student Committee',
+                    tagline: commData.tagline || '',
+                    logoUrl: commData.logo_url || '',
+                    coverUrl: commData.cover_url || '',
+                    description: commData.description || '',
+                    socials: commData.socials || {},
+                    members: [],
+                    verified: Boolean(commData.verified)
+                  });
+                }
               }
             }
-          }
-        } catch (err) {}
+          } catch (err) {}
+        }
       }
     };
 
     fetchLiveEvent();
 
+    const interval = setInterval(fetchLiveEvent, 4000);
+    window.addEventListener('focus', fetchLiveEvent);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', fetchLiveEvent);
     };
   }, [targetSlug]);
 

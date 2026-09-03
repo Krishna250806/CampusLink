@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCampusLink } from '../../context/CampusLinkContext';
-import type { Event, ThemeId, EventLink, Committee } from '../../types/campuslink';
+import type { Event, ThemeId, EventLink } from '../../types/campuslink';
 import { PhoneMockup } from '../../components/phone/PhoneMockup';
 import { PublicEventPage } from '../PublicEventPage';
 import { compressImage } from '../../utils/imageCompressor';
@@ -156,9 +156,6 @@ export const EventBuilderPage: React.FC = () => {
             committee: safeCommittee
           })
         }).catch(() => {});
-
-        // Publish to Global Cloud Relay (works on any mobile phone on 4G/5G/Wi-Fi worldwide without setup)
-        publishToCloudSync(fullDraft, safeCommittee);
       } catch {}
     }, 150);
 
@@ -169,48 +166,6 @@ export const EventBuilderPage: React.FC = () => {
       } catch {}
     };
   }, [draft, eventId, targetEvent?.id, safeCommittee]);
-
-  // Cloud publish helper for global real-time synchronization across devices
-  const publishToCloudSync = (evt: Partial<Event>, comm?: Partial<Committee>) => {
-    try {
-      const cleanPoster = (evt.posterUrl && !evt.posterUrl.startsWith('data:'))
-        ? evt.posterUrl
-        : (evt.posterUrl && evt.posterUrl.length < 500 ? evt.posterUrl : undefined);
-
-      const cleanLogo = (comm?.logoUrl && !comm.logoUrl.startsWith('data:'))
-        ? comm.logoUrl
-        : (comm?.logoUrl && comm.logoUrl.length < 500 ? comm.logoUrl : undefined);
-
-      const payload = JSON.stringify({
-        event: {
-          ...evt,
-          posterUrl: cleanPoster || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000',
-          description: evt.description?.slice(0, 250)
-        },
-        committee: {
-          name: comm?.name || 'cultural committee',
-          handle: comm?.handle || 'nuv_cc',
-          logoUrl: cleanLogo || ''
-        }
-      });
-
-      const topics = new Set<string>();
-      if (evt.slug) topics.add(`campuslink_sync_${evt.slug.toLowerCase().replace(/[^a-z0-9]/g, '_')}`);
-      if (evt.id) topics.add(`campuslink_sync_${evt.id.toLowerCase().replace(/[^a-z0-9]/g, '_')}`);
-      if (evt.title) topics.add(`campuslink_sync_${evt.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}`);
-      if (evt.slug?.includes('khelaiya') || evt.title?.toLowerCase().includes('khelaiya')) {
-        topics.add('campuslink_sync_khelaiya');
-        topics.add('campuslink_sync_cc_khelaiya');
-      }
-
-      topics.forEach(topic => {
-        fetch(`https://ntfy.sh/${topic}`, {
-          method: 'POST',
-          body: payload
-        }).catch(() => {});
-      });
-    } catch {}
-  };
 
   // Initial mount sync: ensure draft is immediately available so live event page and QR scans have full links on first load
   useEffect(() => {
@@ -241,8 +196,6 @@ export const EventBuilderPage: React.FC = () => {
           committee: safeCommittee
         })
       }).catch(() => {});
-
-      publishToCloudSync(fullDraft, safeCommittee);
     } catch {}
   }, []);
 

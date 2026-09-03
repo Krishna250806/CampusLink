@@ -51,90 +51,30 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   const committeeList = allCommittees && allCommittees.length > 0 ? allCommittees : committees;
   const eventList = allEvents && allEvents.length > 0 ? allEvents : events;
 
-  // Global Real-Time Cloud Sync & Server Sync (works worldwide across all phones & computers without rescanning)
+  // Live Database & Local Network Sync
   useEffect(() => {
     if (!targetSlug) return;
 
     let isMounted = true;
-    const cleanSlug = targetSlug.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    const topics = [
-      `campuslink_sync_${cleanSlug}`,
-      ...(cleanSlug.includes('khelaiya') ? ['campuslink_sync_khelaiya', 'campuslink_sync_cc_khelaiya'] : [])
-    ];
-
-    const applyEventData = (data: any) => {
-      if (!data || !isMounted) return;
-      if (data.event) {
-        setRemoteEvent(prev => {
-          const incoming = data.event;
-          return {
-            ...(prev || DEFAULT_FALLBACK_EVENT),
-            ...incoming,
-            themeId: incoming.themeId || prev?.themeId || 'popbrutalist',
-            posterUrl: (incoming.posterUrl && incoming.posterUrl.length > 10) ? incoming.posterUrl : (prev?.posterUrl || DEFAULT_FALLBACK_EVENT.posterUrl),
-            startDate: incoming.startDate || prev?.startDate || DEFAULT_FALLBACK_EVENT.startDate,
-            endDate: incoming.endDate || prev?.endDate || DEFAULT_FALLBACK_EVENT.endDate,
-            venue: incoming.venue || prev?.venue || 'Campus Main Auditorium',
-            address: incoming.address || prev?.address || 'Campus Gate 1, University',
-            primaryCtaText: incoming.primaryCtaText || prev?.primaryCtaText || 'register',
-            primaryCtaUrl: incoming.primaryCtaUrl || prev?.primaryCtaUrl || 'https://forms.google.com',
-            links: Array.isArray(incoming.links) && incoming.links.length > 0
-              ? incoming.links
-              : (Array.isArray(prev?.links) && prev.links.length > 0 ? prev.links : [])
-          } as Event;
-        });
-      }
-      if (data.committee) {
-        setRemoteCommittee(prev => ({
-          ...(prev || DEFAULT_FALLBACK_COMMITTEE),
-          ...data.committee,
-          name: data.committee.name || prev?.name || 'cultural committee',
-          handle: data.committee.handle || prev?.handle || 'nuv_cc',
-          logoUrl: data.committee.logoUrl || prev?.logoUrl || ''
-        } as Committee));
-      }
-    };
 
     const fetchLiveEvent = async () => {
-      // 1. Primary Global Cloud Sync: Instant refresh across any mobile phone or device worldwide
-      for (const topic of topics) {
-        try {
-          const res = await fetch(`https://ntfy.sh/${topic}/json?poll=1`);
-          if (res.ok) {
-            const text = await res.text();
-            if (text && isMounted) {
-              const lines = text.trim().split('\n');
-              for (let i = lines.length - 1; i >= 0; i--) {
-                try {
-                  const item = JSON.parse(lines[i]);
-                  if (item.message) {
-                    const parsed = JSON.parse(item.message);
-                    if (parsed && (parsed.event || parsed.committee)) {
-                      applyEventData(parsed);
-                      return;
-                    }
-                  }
-                } catch {}
-              }
-            }
-          }
-        } catch (err) {}
-      }
-
-      // 2. Secondary Local Server Sync (for local dev server / local Wi-Fi)
+      // 1. Check local server live sync API if available on dev server
       try {
         const querySlug = targetSlug || 'latest';
         const res = await fetch(`/api/live-sync?slug=${encodeURIComponent(querySlug)}`);
         if (res.ok) {
           const json = await res.json();
           if (json && json.event && isMounted) {
-            applyEventData(json);
-            return;
+            if (Array.isArray(json.event.links) && json.event.links.length > 0) {
+              setRemoteEvent(json.event);
+              if (json.committee) setRemoteCommittee(json.committee);
+              return;
+            }
           }
         }
       } catch (e) {}
 
-      // 3. Tertiary Supabase DB Sync if configured
+      // 2. Check Supabase DB if configured
       if (isSupabaseConfigured() && targetSlug) {
         try {
           const { data, error } = await supabase
@@ -161,7 +101,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
               primaryCtaText: data.primary_cta_text || 'Register Now',
               primaryCtaUrl: data.primary_cta_url || '',
               organizerContact: data.organizer_contact || {},
-              themeId: data.theme_id || 'midnight',
+              themeId: data.theme_id || 'popbrutalist',
               customAccentColor: data.custom_accent_color || '#fafafa',
               bgSvgPattern: data.bg_svg_pattern || '',
               status: data.status || 'published',
@@ -204,34 +144,8 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
 
     fetchLiveEvent();
 
-    // Real-time Server-Sent Events (SSE) stream for instant zero-refresh updates
-    let eventSource: EventSource | null = null;
-    try {
-      if (typeof EventSource !== 'undefined') {
-        eventSource = new EventSource(`https://ntfy.sh/${topics[0]}/sse`);
-        eventSource.onmessage = (e) => {
-          try {
-            const item = JSON.parse(e.data);
-            if (item.message) {
-              const parsed = JSON.parse(item.message);
-              applyEventData(parsed);
-            }
-          } catch {}
-        };
-      }
-    } catch {}
-
-    // Poll every 2.5s and on tab focus/refresh
-    const interval = setInterval(fetchLiveEvent, 2500);
-    window.addEventListener('focus', fetchLiveEvent);
-
     return () => {
       isMounted = false;
-      clearInterval(interval);
-      window.removeEventListener('focus', fetchLiveEvent);
-      try {
-        eventSource?.close();
-      } catch {}
     };
   }, [targetSlug]);
 
@@ -350,15 +264,15 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       )
     : ((liveDraft as unknown as Event) || eventList.find(e => e.id === activeEvent?.id) || undefined);
 
-  // Match Event cleanly (prefers live builder preview > live stream draft > fresh remote server/Supabase > decoded URL payload > local storage > fallback)
+  // Match Event cleanly (prefers live builder preview > live stream draft > decoded URL payload > local storage > remote server/Supabase > fallback)
   const rawEvent: Event = customEvent
     || (isDraftMatch ? (liveDraft as unknown as Event) : undefined)
-    || (remoteEvent && Array.isArray(remoteEvent.links) && remoteEvent.links.length > 0 ? remoteEvent : undefined)
-    || remoteEvent
     || (decodedEventFromUrl && Array.isArray(decodedEventFromUrl.links) && decodedEventFromUrl.links.length > 0 ? decodedEventFromUrl : undefined)
     || (localEvent && Array.isArray(localEvent.links) && localEvent.links.length > 0 ? localEvent : undefined)
+    || (remoteEvent && Array.isArray(remoteEvent.links) && remoteEvent.links.length > 0 ? remoteEvent : undefined)
     || decodedEventFromUrl
     || localEvent
+    || remoteEvent
     || (liveDraft as unknown as Event)
     || eventList[0]
     || DEFAULT_FALLBACK_EVENT;

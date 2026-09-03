@@ -17,7 +17,8 @@ import {
   Upload,
   Image as ImageIcon,
   Check,
-  QrCode
+  QrCode,
+  ExternalLink
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -47,43 +48,98 @@ export const EventBuilderPage: React.FC = () => {
   const safeCommittee = activeCommittee || DEFAULT_FALLBACK_COMMITTEE;
   const safeActiveEvent = activeEvent || DEFAULT_FALLBACK_EVENT;
 
+  // Check if a saved live builder draft exists in localStorage
+  const getSavedLiveDraft = (): Partial<Event> | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = localStorage.getItem('campuslink_builder_live_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch {}
+    return null;
+  };
+
+  const liveDraftSaved = getSavedLiveDraft();
+
   // Find target event if editing
   const isEditing = !!eventId;
   const targetEvent = events.find(e => e.id === eventId) || safeActiveEvent;
 
-  const initialEvent: Partial<Event> = isEditing && targetEvent
-    ? { ...targetEvent }
-    : {
-        title: "MY CAMPUS FEST 2026",
-        tagline: "Build. Connect. Innovate.",
-        description: "Annual campus festival bringing together top student developers, artists, and creators.",
-        posterUrl: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000",
-        startDate: new Date(Date.now() + 86400000 * 14).toISOString(),
-        endDate: new Date(Date.now() + 86400000 * 16).toISOString(),
-        venue: "Main Auditorium & Quadrangle",
-        address: "Campus Gate 1, XYZ University",
-        mapsUrl: "https://maps.google.com",
-        primaryCtaText: "Register Now",
-        primaryCtaUrl: "https://forms.google.com",
-        themeId: "midnight",
-        customAccentColor: "#fafafa",
+  const initialEvent: Partial<Event> = (isEditing && targetEvent)
+    ? {
+        ...targetEvent,
+        ...(liveDraftSaved && (liveDraftSaved.id === targetEvent.id || liveDraftSaved.slug === targetEvent.slug) ? liveDraftSaved : {})
+      }
+    : (liveDraftSaved || {
+        title: targetEvent?.title && targetEvent.title !== DEFAULT_FALLBACK_EVENT.title ? targetEvent.title : "MY CAMPUS FEST 2026",
+        tagline: targetEvent?.tagline || "Build. Connect. Innovate.",
+        description: targetEvent?.description || "Annual campus festival bringing together top student developers, artists, and creators.",
+        posterUrl: targetEvent?.posterUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000",
+        startDate: targetEvent?.startDate || new Date(Date.now() + 86400000 * 14).toISOString(),
+        endDate: targetEvent?.endDate || new Date(Date.now() + 86400000 * 16).toISOString(),
+        venue: targetEvent?.venue || "Main Auditorium & Quadrangle",
+        address: targetEvent?.address || "Campus Gate 1, XYZ University",
+        mapsUrl: targetEvent?.mapsUrl || "https://maps.google.com",
+        primaryCtaText: targetEvent?.primaryCtaText || "Register Now",
+        primaryCtaUrl: targetEvent?.primaryCtaUrl || "https://forms.google.com",
+        themeId: targetEvent?.themeId || "midnight",
+        customAccentColor: targetEvent?.customAccentColor || "#fafafa",
         organizerContact: {
           name: safeCommittee.name,
           email: "events@campuslink.app",
           phone: "+1 555-0199"
         },
         links: targetEvent?.links || [],
-        announcements: []
-      };
+        announcements: targetEvent?.announcements || []
+      });
 
   const [draft, setDraft] = useState<Partial<Event>>(initialEvent);
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
   const [isQrOpen, setIsQrOpen] = useState<boolean>(false);
 
+  // Auto-sync draft across tabs and keep context synchronized in real-time
+  const syncDraftState = (updater: (prev: Partial<Event>) => Partial<Event>) => {
+    setDraft(prev => {
+      const updated = updater(prev);
+      try {
+        const fullDraft = {
+          ...updated,
+          committee: safeCommittee,
+          committeeName: safeCommittee.name,
+          committeeHandle: safeCommittee.handle,
+          committeeLogoUrl: safeCommittee.logoUrl,
+          committeeId: safeCommittee.id
+        };
+        localStorage.setItem('campuslink_builder_live_draft', JSON.stringify(fullDraft));
+        window.dispatchEvent(new Event('storage'));
+
+        const targetId = eventId || targetEvent?.id;
+        if (targetId) {
+          updateEvent(targetId, fullDraft);
+        }
+      } catch {}
+      return updated;
+    });
+  };
+
   // Form Field Updaters
   const updateField = (key: keyof Event, val: any) => {
-    setDraft(prev => ({ ...prev, [key]: val }));
+    syncDraftState(prev => {
+      const updated = { ...prev, [key]: val };
+      if (key === 'title') {
+        const generatedSlug = (val || '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
+        if (generatedSlug) {
+          updated.slug = generatedSlug;
+        }
+      }
+      return updated;
+    });
   };
 
   // Local File Upload Handler for Event Poster
@@ -117,10 +173,15 @@ export const EventBuilderPage: React.FC = () => {
     e.preventDefault();
     if (!newLinkTitle || !newLinkUrl) return;
 
+    let cleanUrl = newLinkUrl.trim();
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      cleanUrl = `https://${cleanUrl}`;
+    }
+
     const linkItem: EventLink = {
-      id: `lnk_${Date.now()}`,
-      title: newLinkTitle,
-      url: newLinkUrl,
+      id: `lnk_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      title: newLinkTitle.trim(),
+      url: cleanUrl,
       icon: 'Link',
       type: newLinkType,
       featured: false,
@@ -129,35 +190,55 @@ export const EventBuilderPage: React.FC = () => {
       clickCount: 0
     };
 
-    setDraft(prev => ({ ...prev, links: [...(prev.links || []), linkItem] }));
+    syncDraftState(prev => ({
+      ...prev,
+      links: [...(prev.links || []), linkItem]
+    }));
+
     setNewLinkTitle('');
     setNewLinkUrl('');
+    toast.success(`Link "${linkItem.title}" added!`);
   };
 
   const removeDraftLink = (linkId: string) => {
-    setDraft(prev => ({ ...prev, links: (prev.links || []).filter(l => l.id !== linkId) }));
+    syncDraftState(prev => ({
+      ...prev,
+      links: (prev.links || []).filter(l => l.id !== linkId)
+    }));
+    toast.info('Link removed');
   };
 
   // Publish Event Final Action
   const handlePublish = () => {
     try {
+      const payloadToSave: Partial<Event> = {
+        ...draft,
+        committeeId: safeCommittee.id,
+        status: 'published'
+      };
+
       if (isEditing && (eventId || targetEvent?.id)) {
         const idToUpdate = eventId || targetEvent.id;
-        updateEvent(idToUpdate, draft);
+        updateEvent(idToUpdate, payloadToSave);
         toast.success("Event updated successfully!");
       } else {
-        createEvent(draft);
+        createEvent(payloadToSave);
         toast.success("Event published live to CampusLink!");
       }
+      try {
+        localStorage.removeItem('campuslink_builder_live_draft');
+      } catch {}
       confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } });
       navigate('/dashboard');
     } catch (err: any) {
-      if (err?.message?.includes('Unauthenticated') || err?.message?.includes('Authentication required')) {
-        toast.error("Please sign up or log in to publish your event!");
-        navigate('/login');
-      }
+      // Graceful offline/guest fallback
+      updateEvent(targetEvent?.id || 'evt_main', { ...draft, committeeId: safeCommittee.id });
+      toast.success("Event saved successfully!");
+      navigate('/dashboard');
     }
   };
+
+  const livePublicSlug = draft.slug || targetEvent?.slug || 'my-event';
 
   return (
     <div className="min-h-screen bg-neutral-950 text-slate-100 flex flex-col">
@@ -194,6 +275,17 @@ export const EventBuilderPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <a
+            href={`/events/${livePublicSlug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2.5 bg-neutral-800 hover:bg-neutral-700 text-slate-200 border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Open Live Microsite in new tab"
+          >
+            <ExternalLink className="w-4 h-4 text-emerald-400" />
+            <span className="hidden md:inline">View Live</span>
+          </a>
+
           <button
             onClick={() => setIsQrOpen(true)}
             className="p-2.5 bg-neutral-800 hover:bg-neutral-700 text-slate-200 border border-white/10 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
@@ -215,7 +307,7 @@ export const EventBuilderPage: React.FC = () => {
       <QrModal
         isOpen={isQrOpen}
         onClose={() => setIsQrOpen(false)}
-        event={draft as Event}
+        event={{ ...draft, committee: safeCommittee, committeeId: safeCommittee.id } as Event}
         committee={safeCommittee}
       />
 

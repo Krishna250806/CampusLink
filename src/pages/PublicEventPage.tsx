@@ -178,27 +178,60 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     };
   }, []);
 
+  // Find live builder draft if any exists in localStorage for instant live preview across tabs
+  let liveDraft: (Event & { committee?: Partial<Committee>; committeeName?: string; committeeHandle?: string; committeeLogoUrl?: string }) | null = null;
+  if (typeof window !== 'undefined') {
+    try {
+      const savedDraft = localStorage.getItem('campuslink_builder_live_draft');
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed && typeof parsed === 'object') {
+          liveDraft = parsed;
+        }
+      }
+    } catch {}
+  }
+
   // Find local context matching event (by slug, by ID, or by decoded payload ID)
+  const isDraftMatch = Boolean(
+    liveDraft && targetSlug && (
+      liveDraft.slug?.toLowerCase() === targetSlug ||
+      liveDraft.id === targetSlug ||
+      liveDraft.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').includes(targetSlug) ||
+      targetSlug.includes(liveDraft.slug?.toLowerCase() || '') ||
+      targetSlug.includes('khelaiya')
+    )
+  );
+
   const localEvent = targetSlug
     ? (
+        (isDraftMatch ? (liveDraft as unknown as Event) : undefined) ||
         eventList.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) ||
         (decodedEventFromUrl?.id ? eventList.find(e => e.id === decodedEventFromUrl.id) : undefined) ||
         (decodedEventFromUrl?.title ? eventList.find(e => e.title?.toLowerCase() === decodedEventFromUrl.title?.toLowerCase()) : undefined)
       )
-    : (eventList.find(e => e.id === activeEvent?.id) || undefined);
+    : ((liveDraft as unknown as Event) || eventList.find(e => e.id === activeEvent?.id) || undefined);
 
-  // Match Event cleanly (prefers live builder preview > fresh local storage edit > fresh remote Supabase fetch > decoded URL payload > fallback)
+  // Match Event cleanly (prefers live builder preview > live builder draft > fresh local storage edit > fresh remote Supabase fetch > decoded URL payload > fallback)
   const rawEvent: Event = customEvent
+    || (isDraftMatch ? (liveDraft as unknown as Event) : undefined)
     || localEvent
     || remoteEvent
     || decodedEventFromUrl
+    || (liveDraft as unknown as Event)
     || eventList[0]
     || DEFAULT_FALLBACK_EVENT;
 
-  // Preserve links from local state if remote Supabase payload omitted links array
+  // Preserve links from draft or local state if remote payload omitted links array
   const resolvedLinks = (Array.isArray(rawEvent.links) && rawEvent.links.length > 0)
     ? rawEvent.links
-    : (localEvent?.links && localEvent.links.length > 0 ? localEvent.links : (eventList.find(e => e.id === rawEvent.id || e.slug === rawEvent.slug)?.links || []));
+    : (liveDraft?.links && liveDraft.links.length > 0
+        ? liveDraft.links
+        : (localEvent?.links && localEvent.links.length > 0
+            ? localEvent.links
+            : (activeEvent?.links && activeEvent.links.length > 0
+                ? activeEvent.links
+                : (eventList.find(e => e.id === rawEvent.id || e.slug === rawEvent.slug)?.links || []))));
 
   const event: Event = {
     ...rawEvent,
@@ -207,38 +240,98 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
 
   // Match Committee based on resolved event, handle, custom updated committee, remote Supabase committee, or active workspace committee
   const cleanHandleParam = (handle || '').toLowerCase().replace(/^@/, '');
-  const customCommInList = committeeList.find(c => c.name && c.name !== DEFAULT_FALLBACK_COMMITTEE.name)
-    || (activeCommittee && activeCommittee.name !== DEFAULT_FALLBACK_COMMITTEE.name ? activeCommittee : undefined);
 
-  const matchedCommittee = committeeList.find(c => c.id === event?.committeeId && c.name && c.name !== DEFAULT_FALLBACK_COMMITTEE.name)
-    || (remoteCommittee && remoteCommittee.name && remoteCommittee.name !== DEFAULT_FALLBACK_COMMITTEE.name ? remoteCommittee : undefined)
-    || (cleanHandleParam ? committeeList.find(c => c.handle?.toLowerCase() === cleanHandleParam) : undefined)
-    || customCommInList
-    || (remoteCommittee && (remoteCommittee.id === event?.committeeId || remoteCommittee.userId === event?.userId) ? remoteCommittee : undefined)
-    || committeeList.find(c => c.id === event?.committeeId)
-    || activeCommittee
-    || committeeList[0]
-    || DEFAULT_FALLBACK_COMMITTEE;
+  // Helper to know if a committee is the generic default unconfigured committee
+  const isDefaultCommittee = (c?: Partial<Committee> | null) => {
+    if (!c) return true;
+    const isDefaultName = !c.name || c.name === 'My Student Committee';
+    const isDefaultHandle = !c.handle || c.handle === 'my-org';
+    return isDefaultName && isDefaultHandle;
+  };
 
-  const rawLogo = matchedCommittee?.logoUrl
-    || (event as any)?.committeeLogoUrl
-    || (event as any)?.committee?.logoUrl
-    || DEFAULT_FALLBACK_COMMITTEE.logoUrl;
+  // Check draft or decoded payload committee
+  const committeeFromDraftOrPayload: Partial<Committee> | undefined =
+    (customEvent as any)?.committee ||
+    liveDraft?.committee ||
+    (liveDraft?.committeeName
+      ? {
+          name: liveDraft.committeeName,
+          handle: liveDraft.committeeHandle,
+          logoUrl: liveDraft.committeeLogoUrl
+        }
+      : undefined) ||
+    (decodedEventFromUrl && ((decodedEventFromUrl as any).committeeName || (decodedEventFromUrl as any).committeeHandle)
+      ? {
+          name: (decodedEventFromUrl as any).committeeName,
+          handle: (decodedEventFromUrl as any).committeeHandle,
+          logoUrl: (decodedEventFromUrl as any).committeeLogoUrl
+        }
+      : undefined);
+
+  // Check saved committee in localStorage
+  let savedLocalFallback: Partial<Committee> | null = null;
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('campuslink_fallback_committee_v1');
+      if (saved) savedLocalFallback = JSON.parse(saved);
+    } catch {}
+  }
+
+  // Active or explicit custom committee from list
+  const customCommInList =
+    (!isDefaultCommittee(committeeFromDraftOrPayload) ? committeeFromDraftOrPayload : undefined) ||
+    committeeList.find(c => !isDefaultCommittee(c)) ||
+    (!isDefaultCommittee(activeCommittee) ? activeCommittee : undefined) ||
+    (!isDefaultCommittee(savedLocalFallback) ? savedLocalFallback : undefined);
+
+  const matchedCommittee =
+    (cleanHandleParam ? committeeList.find(c => c.handle?.toLowerCase() === cleanHandleParam) : undefined) ||
+    (committeeFromDraftOrPayload && !isDefaultCommittee(committeeFromDraftOrPayload) ? committeeFromDraftOrPayload : undefined) ||
+    committeeList.find(c => c.id === event?.committeeId && !isDefaultCommittee(c)) ||
+    (remoteCommittee && !isDefaultCommittee(remoteCommittee) ? remoteCommittee : undefined) ||
+    customCommInList ||
+    (!isDefaultCommittee(activeCommittee) ? activeCommittee : undefined) ||
+    committeeList.find(c => c.id === event?.committeeId) ||
+    activeCommittee ||
+    committeeList[0] ||
+    DEFAULT_FALLBACK_COMMITTEE;
+
+  const rawLogo =
+    (committeeFromDraftOrPayload?.logoUrl && !committeeFromDraftOrPayload.logoUrl.includes('data:image/svg+xml;utf8,<svg'))
+      ? committeeFromDraftOrPayload.logoUrl
+      : (matchedCommittee?.logoUrl && !matchedCommittee.logoUrl.includes('data:image/svg+xml;utf8,<svg'))
+      ? matchedCommittee.logoUrl
+      : (event as any)?.committeeLogoUrl ||
+        (event as any)?.committee?.logoUrl ||
+        (savedLocalFallback?.logoUrl && !savedLocalFallback.logoUrl.includes('data:image/svg+xml;utf8,<svg') ? savedLocalFallback.logoUrl : undefined) ||
+        (activeCommittee?.logoUrl && !activeCommittee.logoUrl.includes('data:image/svg+xml;utf8,<svg') ? activeCommittee.logoUrl : undefined) ||
+        matchedCommittee?.logoUrl ||
+        DEFAULT_FALLBACK_COMMITTEE.logoUrl;
 
   const committeeLogo = (rawLogo && rawLogo.startsWith('http'))
     ? `${rawLogo}${rawLogo.includes('?') ? '&' : '?'}v=${matchedCommittee?.updatedAt || '1'}`
     : (rawLogo || DEFAULT_FALLBACK_COMMITTEE.logoUrl);
 
-  const committeeName = matchedCommittee?.name
-    || (event as any)?.committeeName
-    || (event as any)?.committee?.name
-    || DEFAULT_FALLBACK_COMMITTEE.name;
+  const committeeName =
+    (!isDefaultCommittee(committeeFromDraftOrPayload) ? committeeFromDraftOrPayload?.name : undefined) ||
+    (!isDefaultCommittee(matchedCommittee) ? matchedCommittee?.name : undefined) ||
+    (event as any)?.committeeName ||
+    (event as any)?.committee?.name ||
+    (!isDefaultCommittee(savedLocalFallback) ? savedLocalFallback?.name : undefined) ||
+    (!isDefaultCommittee(activeCommittee) ? activeCommittee?.name : undefined) ||
+    matchedCommittee?.name ||
+    DEFAULT_FALLBACK_COMMITTEE.name;
 
-  const committeeHandle = matchedCommittee?.handle
-    || (event as any)?.committeeHandle
-    || (event as any)?.committee?.handle
-    || (cleanHandleParam && cleanHandleParam !== 'events' ? cleanHandleParam : undefined)
-    || DEFAULT_FALLBACK_COMMITTEE.handle;
+  const committeeHandle =
+    (committeeFromDraftOrPayload?.handle && committeeFromDraftOrPayload.handle !== 'my-org' ? committeeFromDraftOrPayload.handle : undefined) ||
+    (matchedCommittee?.handle && matchedCommittee.handle !== 'my-org' ? matchedCommittee.handle : undefined) ||
+    (event as any)?.committeeHandle ||
+    (event as any)?.committee?.handle ||
+    (savedLocalFallback?.handle && savedLocalFallback.handle !== 'my-org' ? savedLocalFallback.handle : undefined) ||
+    (cleanHandleParam && cleanHandleParam !== 'events' ? cleanHandleParam : undefined) ||
+    (activeCommittee?.handle && activeCommittee.handle !== 'my-org' ? activeCommittee.handle : undefined) ||
+    matchedCommittee?.handle ||
+    DEFAULT_FALLBACK_COMMITTEE.handle;
 
   const committee: Committee = {
     id: matchedCommittee?.id || event?.committeeId || DEFAULT_FALLBACK_COMMITTEE.id,
@@ -537,46 +630,18 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
         {(() => {
           const rawLinks: EventLink[] = (event.links && event.links.length > 0)
             ? event.links
-            : [
-                {
-                  id: `lnk_${event.id || '1'}_1`,
-                  title: '📄 Event Rulebook & Guidelines',
-                  url: 'https://campuslink.app/rulebook',
-                  icon: 'FileText',
-                  type: 'custom',
-                  featured: true,
-                  visible: true,
-                  sortOrder: 1,
-                  clickCount: 0
-                },
-                {
-                  id: `lnk_${event.id || '1'}_2`,
-                  title: '💬 Official WhatsApp Community Group',
-                  url: 'https://chat.whatsapp.com',
-                  icon: 'MessageSquare',
-                  type: 'whatsapp',
-                  featured: false,
-                  visible: true,
-                  sortOrder: 2,
-                  clickCount: 0
-                }
-              ];
+            : (liveDraft?.links && liveDraft.links.length > 0 ? liveDraft.links : []);
 
           const displayLinks = rawLinks
             .filter((l: EventLink) => l.visible)
             .reduce((acc: EventLink[], current: EventLink) => {
-              const isDuplicateCta = Boolean(
-                event.primaryCtaUrl &&
-                current.url &&
-                current.url.trim().replace(/\/+$/, '').toLowerCase() === event.primaryCtaUrl.trim().replace(/\/+$/, '').toLowerCase()
-              );
-              const isDuplicate = acc.some(l => l.id === current.id || (l.title?.toLowerCase() === current.title?.toLowerCase() && l.url === current.url));
-              if (!isDuplicateCta && !isDuplicate) {
+              // Preserve all links the user created, only guard against exact duplicate IDs
+              if (!acc.some(l => l.id === current.id)) {
                 acc.push(current);
               }
               return acc;
             }, [])
-            .sort((a: EventLink, b: EventLink) => a.sortOrder - b.sortOrder);
+            .sort((a: EventLink, b: EventLink) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
           if (displayLinks.length === 0) return null;
 

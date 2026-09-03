@@ -631,24 +631,34 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setEvents([]); // New user starts with clean 0 events in their workspace
     setUser(newUser);
 
+    DEFAULT_FALLBACK_COMMITTEE.name = newCommittee.name;
+    DEFAULT_FALLBACK_COMMITTEE.handle = newCommittee.handle;
+    DEFAULT_FALLBACK_COMMITTEE.logoUrl = newCommittee.logoUrl;
+
+    safeLocalStorageSet('campuslink_fallback_committee_v1', JSON.stringify({
+      id: newCommId,
+      name: newCommittee.name,
+      logoUrl: newCommittee.logoUrl,
+      handle: newCommittee.handle,
+      tagline: newCommittee.tagline,
+      description: newCommittee.description
+    }));
+
     return { success: true };
   };
 
   const createEvent = (newEventData: Partial<Event>): Event => {
     const activeUser = user || (localStorage.getItem(STORAGE_KEY_USER) ? JSON.parse(localStorage.getItem(STORAGE_KEY_USER)!) : null);
-    if (!activeUser) {
-      toast.error('Authentication required to create events.');
-      throw new Error('Unauthenticated user action');
-    }
+    const userId = activeUser?.id || 'usr_guest';
 
-    const slug = (newEventData.title || 'new-event')
+    const slug = (newEventData.slug || (newEventData.title || 'new-event'))
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
 
     const created: Event = {
-      id: `evt_${Date.now()}`,
-      userId: activeUser.id,
+      id: newEventData.id || `evt_${Date.now()}`,
+      userId,
       committeeId: activeCommittee.id,
       slug: slug || `event-${Date.now()}`,
       title: newEventData.title || 'Untitled Event',
@@ -1043,11 +1053,20 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (partial.handle) {
       DEFAULT_FALLBACK_COMMITTEE.handle = partial.handle;
     }
+    if (partial.tagline) {
+      DEFAULT_FALLBACK_COMMITTEE.tagline = partial.tagline;
+    }
+    if (partial.description) {
+      DEFAULT_FALLBACK_COMMITTEE.description = partial.description;
+    }
 
     safeLocalStorageSet('campuslink_fallback_committee_v1', JSON.stringify({
+      id: updatedTargetComm?.id || 'comm_main',
       name: DEFAULT_FALLBACK_COMMITTEE.name,
       logoUrl: DEFAULT_FALLBACK_COMMITTEE.logoUrl,
-      handle: DEFAULT_FALLBACK_COMMITTEE.handle
+      handle: DEFAULT_FALLBACK_COMMITTEE.handle,
+      tagline: DEFAULT_FALLBACK_COMMITTEE.tagline,
+      description: DEFAULT_FALLBACK_COMMITTEE.description
     }));
 
     if (isSupabaseConfigured() && updatedTargetComm) {

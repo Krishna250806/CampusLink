@@ -65,16 +65,32 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     const applyEventData = (data: any) => {
       if (!data || !isMounted) return;
       if (data.event) {
-        setRemoteEvent(prev => ({
-          ...(prev || {}),
-          ...data.event,
-          links: Array.isArray(data.event.links) && data.event.links.length > 0 ? data.event.links : (prev?.links || [])
-        } as Event));
+        setRemoteEvent(prev => {
+          const incoming = data.event;
+          return {
+            ...(prev || DEFAULT_FALLBACK_EVENT),
+            ...incoming,
+            themeId: incoming.themeId || prev?.themeId || 'popbrutalist',
+            posterUrl: (incoming.posterUrl && incoming.posterUrl.length > 10) ? incoming.posterUrl : (prev?.posterUrl || DEFAULT_FALLBACK_EVENT.posterUrl),
+            startDate: incoming.startDate || prev?.startDate || DEFAULT_FALLBACK_EVENT.startDate,
+            endDate: incoming.endDate || prev?.endDate || DEFAULT_FALLBACK_EVENT.endDate,
+            venue: incoming.venue || prev?.venue || 'Campus Main Auditorium',
+            address: incoming.address || prev?.address || 'Campus Gate 1, University',
+            primaryCtaText: incoming.primaryCtaText || prev?.primaryCtaText || 'register',
+            primaryCtaUrl: incoming.primaryCtaUrl || prev?.primaryCtaUrl || 'https://forms.google.com',
+            links: Array.isArray(incoming.links) && incoming.links.length > 0
+              ? incoming.links
+              : (Array.isArray(prev?.links) && prev.links.length > 0 ? prev.links : [])
+          } as Event;
+        });
       }
       if (data.committee) {
         setRemoteCommittee(prev => ({
-          ...(prev || {}),
-          ...data.committee
+          ...(prev || DEFAULT_FALLBACK_COMMITTEE),
+          ...data.committee,
+          name: data.committee.name || prev?.name || 'cultural committee',
+          handle: data.committee.handle || prev?.handle || 'nuv_cc',
+          logoUrl: data.committee.logoUrl || prev?.logoUrl || ''
         } as Committee));
       }
     };

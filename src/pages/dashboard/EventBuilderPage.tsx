@@ -311,6 +311,33 @@ export const EventBuilderPage: React.FC = () => {
     }
   };
 
+  const handleResetDraft = () => {
+    try {
+      localStorage.removeItem('campuslink_builder_live_draft');
+    } catch {}
+    setDraft({
+      id: `evt_${Date.now()}`,
+      userId: safeCommittee.userId || 'usr_guest',
+      committeeId: safeCommittee.id,
+      slug: 'new-campus-fest',
+      title: 'New Campus Fest',
+      tagline: 'Connect. Celebrate. Experience.',
+      description: 'Annual campus festival bringing together top students and creators.',
+      posterUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000',
+      startDate: new Date(Date.now() + 86400000 * 14).toISOString(),
+      endDate: new Date(Date.now() + 86400000 * 16).toISOString(),
+      venue: 'Campus Main Auditorium',
+      address: 'University Main Campus Gate 1',
+      mapsUrl: 'https://maps.google.com',
+      primaryCtaText: 'Register Now',
+      primaryCtaUrl: 'https://forms.google.com',
+      themeId: 'popbrutalist',
+      customAccentColor: '#fafafa',
+      links: []
+    });
+    toast.info('Draft reset! You can now configure your new event.');
+  };
+
   const livePublicSlug = draft.slug || targetEvent?.slug || 'my-event';
 
   return (
@@ -322,7 +349,17 @@ export const EventBuilderPage: React.FC = () => {
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-lg font-black font-heading text-white">{isEditing ? 'Edit Event' : 'Interactive Event Builder'}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-black font-heading text-white">{isEditing ? 'Edit Event' : 'Interactive Event Builder'}</h2>
+              <button
+                type="button"
+                onClick={handleResetDraft}
+                className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-zinc-300 rounded-md border border-white/10 cursor-pointer transition-colors"
+                title="Clear cached draft and start fresh"
+              >
+                Reset / New
+              </button>
+            </div>
             <p className="text-xs text-zinc-400 font-mono">@{safeCommittee.handle} • Real-Time Live Preview Engine</p>
           </div>
         </div>

@@ -263,13 +263,9 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   // Find local context matching event (by slug, by ID, or by decoded payload ID)
   const isDraftMatch = Boolean(
     liveDraft && (
-      !targetSlug ||
-      liveDraft.slug?.toLowerCase() === targetSlug ||
-      liveDraft.id === targetSlug ||
-      liveDraft.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').includes(targetSlug) ||
-      targetSlug.includes(liveDraft.slug?.toLowerCase() || '') ||
-      targetSlug.includes('khelaiya') ||
-      targetSlug === 'my-event'
+      (targetSlug === 'my-event' || !targetSlug) ||
+      (liveDraft.slug && liveDraft.slug.toLowerCase() === targetSlug?.toLowerCase()) ||
+      (liveDraft.id && liveDraft.id === targetSlug)
     )
   );
 
@@ -282,15 +278,15 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       )
     : ((liveDraft as unknown as Event) || eventList.find(e => e.id === activeEvent?.id) || undefined);
 
-  // Match Event cleanly (prefers live builder preview > live stream draft > decoded URL payload > local storage > remote server/Supabase > fallback)
+  // Match Event cleanly (prefers live builder preview > live stream draft > fresh remote server/Supabase > decoded URL payload > local storage > fallback)
   const rawEvent: Event = customEvent
     || (isDraftMatch ? (liveDraft as unknown as Event) : undefined)
+    || (remoteEvent && Array.isArray(remoteEvent.links) && remoteEvent.links.length > 0 ? remoteEvent : undefined)
+    || remoteEvent
     || (decodedEventFromUrl && Array.isArray(decodedEventFromUrl.links) && decodedEventFromUrl.links.length > 0 ? decodedEventFromUrl : undefined)
     || (localEvent && Array.isArray(localEvent.links) && localEvent.links.length > 0 ? localEvent : undefined)
-    || (remoteEvent && Array.isArray(remoteEvent.links) && remoteEvent.links.length > 0 ? remoteEvent : undefined)
     || decodedEventFromUrl
     || localEvent
-    || remoteEvent
     || (liveDraft as unknown as Event)
     || eventList[0]
     || DEFAULT_FALLBACK_EVENT;

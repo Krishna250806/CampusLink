@@ -773,15 +773,17 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setActiveEventIdState(created.id);
 
     // Sync to Supabase DB if configured
-    if (isSupabaseConfigured() && activeUser) {
+    if (isSupabaseConfigured()) {
       try {
         const cleanPoster = created.posterUrl?.startsWith('data:') && created.posterUrl.length > 50000
           ? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000'
           : created.posterUrl;
 
+        const saveUserId = activeUser?.id || user?.id || created.userId || 'usr_guest';
+
         supabase.from('events').upsert({
           id: created.id,
-          user_id: activeUser.id,
+          user_id: saveUserId,
           committee_id: created.committeeId,
           slug: created.slug,
           title: created.title,

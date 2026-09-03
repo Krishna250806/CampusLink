@@ -51,30 +51,74 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   const committeeList = allCommittees && allCommittees.length > 0 ? allCommittees : committees;
   const eventList = allEvents && allEvents.length > 0 ? allEvents : events;
 
-  // Live Server & DB Sync for QR Code scanners, phone refreshes & external visitors
+  // Global Real-Time Cloud Sync & Server Sync (works worldwide across all phones & computers without rescanning)
   useEffect(() => {
+    if (!targetSlug) return;
+
     let isMounted = true;
+    const cleanSlug = targetSlug.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const topics = [
+      `campuslink_sync_${cleanSlug}`,
+      ...(cleanSlug.includes('khelaiya') ? ['campuslink_sync_khelaiya', 'campuslink_sync_cc_khelaiya'] : [])
+    ];
+
+    const applyEventData = (data: any) => {
+      if (!data || !isMounted) return;
+      if (data.event) {
+        setRemoteEvent(prev => ({
+          ...(prev || {}),
+          ...data.event,
+          links: Array.isArray(data.event.links) && data.event.links.length > 0 ? data.event.links : (prev?.links || [])
+        } as Event));
+      }
+      if (data.committee) {
+        setRemoteCommittee(prev => ({
+          ...(prev || {}),
+          ...data.committee
+        } as Committee));
+      }
+    };
 
     const fetchLiveEvent = async () => {
-      // 1. Try local server live sync API (works across all devices on local network / Vite dev server)
+      // 1. Primary Global Cloud Sync: Instant refresh across any mobile phone or device worldwide
+      for (const topic of topics) {
+        try {
+          const res = await fetch(`https://ntfy.sh/${topic}/json?poll=1`);
+          if (res.ok) {
+            const text = await res.text();
+            if (text && isMounted) {
+              const lines = text.trim().split('\n');
+              for (let i = lines.length - 1; i >= 0; i--) {
+                try {
+                  const item = JSON.parse(lines[i]);
+                  if (item.message) {
+                    const parsed = JSON.parse(item.message);
+                    if (parsed && (parsed.event || parsed.committee)) {
+                      applyEventData(parsed);
+                      return;
+                    }
+                  }
+                } catch {}
+              }
+            }
+          }
+        } catch (err) {}
+      }
+
+      // 2. Secondary Local Server Sync (for local dev server / local Wi-Fi)
       try {
         const querySlug = targetSlug || 'latest';
         const res = await fetch(`/api/live-sync?slug=${encodeURIComponent(querySlug)}`);
         if (res.ok) {
           const json = await res.json();
           if (json && json.event && isMounted) {
-            setRemoteEvent(json.event);
-            if (json.committee) {
-              setRemoteCommittee(json.committee);
-            }
+            applyEventData(json);
             return;
           }
         }
-      } catch (e) {
-        // Fall through to Supabase
-      }
+      } catch (e) {}
 
-      // 2. Try Supabase if configured
+      // 3. Tertiary Supabase DB Sync if configured
       if (isSupabaseConfigured() && targetSlug) {
         try {
           const { data, error } = await supabase
@@ -114,7 +158,6 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
             };
             setRemoteEvent(fetched);
 
-            // Fetch matching remote committee details from Supabase committees table
             if (data.committee_id || data.user_id) {
               const { data: commData } = await supabase
                 .from('committees')
@@ -145,13 +188,34 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
 
     fetchLiveEvent();
 
-    // Auto-poll every 2.5s for live cross-device updates & on tab focus
+    // Real-time Server-Sent Events (SSE) stream for instant zero-refresh updates
+    let eventSource: EventSource | null = null;
+    try {
+      if (typeof EventSource !== 'undefined') {
+        eventSource = new EventSource(`https://ntfy.sh/${topics[0]}/sse`);
+        eventSource.onmessage = (e) => {
+          try {
+            const item = JSON.parse(e.data);
+            if (item.message) {
+              const parsed = JSON.parse(item.message);
+              applyEventData(parsed);
+            }
+          } catch {}
+        };
+      }
+    } catch {}
+
+    // Poll every 2.5s and on tab focus/refresh
     const interval = setInterval(fetchLiveEvent, 2500);
     window.addEventListener('focus', fetchLiveEvent);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
       window.removeEventListener('focus', fetchLiveEvent);
+      try {
+        eventSource?.close();
+      } catch {}
     };
   }, [targetSlug]);
 

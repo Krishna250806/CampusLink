@@ -795,8 +795,10 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           maps_url: created.mapsUrl || '',
           primary_cta_text: created.primaryCtaText || 'Register Now',
           primary_cta_url: created.primaryCtaUrl || '',
-          theme_id: created.themeId || 'midnight',
+          theme_id: created.themeId || 'popbrutalist',
           custom_accent_color: created.customAccentColor || '#fafafa',
+          links: Array.isArray(created.links) ? created.links : [],
+          announcements: Array.isArray(created.announcements) ? created.announcements : [],
           status: created.status || 'published'
         }).then(({ error }) => {
           if (error) console.warn('Supabase create event info:', error.message || error);
@@ -871,8 +873,10 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           maps_url: updatedTargetEvent.mapsUrl || '',
           primary_cta_text: updatedTargetEvent.primaryCtaText || 'Register Now',
           primary_cta_url: updatedTargetEvent.primaryCtaUrl || '',
-          theme_id: updatedTargetEvent.themeId || 'midnight',
+          theme_id: updatedTargetEvent.themeId || 'popbrutalist',
           custom_accent_color: updatedTargetEvent.customAccentColor || '#fafafa',
+          links: Array.isArray(updatedTargetEvent.links) ? updatedTargetEvent.links : [],
+          announcements: Array.isArray(updatedTargetEvent.announcements) ? updatedTargetEvent.announcements : [],
           status: updatedTargetEvent.status || 'published'
         }).then(({ error }) => {
           if (error) console.warn('Supabase update event info:', error.message || error);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCampusLink } from '../../context/CampusLinkContext';
 import type { Event, ThemeId, EventLink } from '../../types/campuslink';
@@ -100,13 +100,12 @@ export const EventBuilderPage: React.FC = () => {
   const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
   const [isQrOpen, setIsQrOpen] = useState<boolean>(false);
 
-  // Auto-sync draft across tabs and keep context synchronized in real-time
-  const syncDraftState = (updater: (prev: Partial<Event>) => Partial<Event>) => {
-    setDraft(prev => {
-      const updated = updater(prev);
+  // Debounced sync for persistent storage and cross-tab real-time updates
+  useEffect(() => {
+    const timer = setTimeout(() => {
       try {
         const fullDraft = {
-          ...updated,
+          ...draft,
           committee: safeCommittee,
           committeeName: safeCommittee.name,
           committeeHandle: safeCommittee.handle,
@@ -121,13 +120,13 @@ export const EventBuilderPage: React.FC = () => {
           updateEvent(targetId, fullDraft);
         }
       } catch {}
-      return updated;
-    });
-  };
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [draft, eventId, targetEvent?.id, safeCommittee]);
 
   // Form Field Updaters
   const updateField = (key: keyof Event, val: any) => {
-    syncDraftState(prev => {
+    setDraft(prev => {
       const updated = { ...prev, [key]: val };
       if (key === 'title') {
         const generatedSlug = (val || '')
@@ -147,19 +146,18 @@ export const EventBuilderPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       try {
-        const compressed = await compressImage(file, 800, 800);
+        const compressed = await compressImage(file, 500, 500, 0.65);
         updateField('posterUrl', compressed);
         toast.success('Event poster uploaded & optimized successfully!');
       } catch (err) {
         console.error('Poster compression failed:', err);
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            updateField('posterUrl', event.target.result as string);
-            toast.success('Local poster image uploaded!');
-          }
-        };
-        reader.readAsDataURL(file);
+        try {
+          const fallback = await compressImage(file, 350, 350, 0.5);
+          updateField('posterUrl', fallback);
+          toast.success('Event poster uploaded!');
+        } catch {
+          toast.error('Could not process image file. Please use a smaller PNG/JPG.');
+        }
       }
     }
   };
@@ -190,7 +188,7 @@ export const EventBuilderPage: React.FC = () => {
       clickCount: 0
     };
 
-    syncDraftState(prev => ({
+    setDraft(prev => ({
       ...prev,
       links: [...(prev.links || []), linkItem]
     }));
@@ -201,7 +199,7 @@ export const EventBuilderPage: React.FC = () => {
   };
 
   const removeDraftLink = (linkId: string) => {
-    syncDraftState(prev => ({
+    setDraft(prev => ({
       ...prev,
       links: (prev.links || []).filter(l => l.id !== linkId)
     }));

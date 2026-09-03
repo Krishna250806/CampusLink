@@ -78,38 +78,104 @@ const safeLocalStorageSet = (key: string, value: string) => {
   try {
     localStorage.setItem(key, value);
   } catch (e: any) {
-    console.warn(`LocalStorage quota limit reached for key "${key}". Auto-cleaning old caches...`);
     try {
+      // 1. Remove legacy or duplicate cache keys
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k !== key && (k.startsWith('campuslink_v') || k.startsWith('campuslink_clean_v1') || k.startsWith('campuslink_clean_v2') || k.startsWith('campuslink_clean_v3') || k.startsWith('campuslink_clean_v4') || k.startsWith('campuslink_clean_v5'))) {
-          keysToRemove.push(k);
+        if (k && k !== key) {
+          if (
+            k.startsWith('campuslink_user_') ||
+            k.startsWith('campuslink_committees_') ||
+            k.startsWith('campuslink_events_') ||
+            k.startsWith('campuslink_clean_v1') ||
+            k.startsWith('campuslink_clean_v2') ||
+            k.startsWith('campuslink_clean_v3') ||
+            k.startsWith('campuslink_clean_v4') ||
+            k.startsWith('campuslink_clean_v5') ||
+            k === 'campuslink_builder_live_draft'
+          ) {
+            keysToRemove.push(k);
+          }
         }
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
-      localStorage.setItem(key, value);
+
+      // 2. Prune oversized image data URLs (> 50KB) in stored event caches
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('campuslink_v6_evt_') || k.startsWith('campuslink_clean_v6_global_events'))) {
+          try {
+            const raw = localStorage.getItem(k);
+            if (raw && raw.includes('data:image/')) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                const pruned = parsed.map(item => {
+                  if (item.posterUrl && item.posterUrl.length > 50000) {
+                    return { ...item, posterUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000' };
+                  }
+                  return item;
+                });
+                localStorage.setItem(k, JSON.stringify(pruned));
+              }
+            }
+          } catch {}
+        }
+      }
+
+      // 3. Retry setting current key
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        // If current value itself has oversized poster, sanitize it to guarantee saving succeeds
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            const sanitized = parsed.map(item => {
+              if (item.posterUrl && item.posterUrl.length > 50000) {
+                return { ...item, posterUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000' };
+              }
+              return item;
+            });
+            localStorage.setItem(key, JSON.stringify(sanitized));
+          } else if (parsed && typeof parsed === 'object') {
+            if (parsed.posterUrl && parsed.posterUrl.length > 50000) {
+              parsed.posterUrl = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000';
+            }
+            localStorage.setItem(key, JSON.stringify(parsed));
+          }
+        } catch {}
+      }
     } catch {
-      // In-memory fallback if browser storage is completely filled
+      // In-memory fallback
     }
   }
 };
 
-// Clear legacy storage cache keys once
+// Clear legacy storage cache keys and purge oversized data URLs on startup once
 if (typeof window !== 'undefined') {
-  ['v1', 'v2', 'v3', 'v4', 'v5'].forEach(ver => {
-    try {
-      localStorage.removeItem(`campuslink_user_${ver}`);
-      localStorage.removeItem(`campuslink_committees_${ver}`);
-      localStorage.removeItem(`campuslink_events_${ver}`);
-      localStorage.removeItem(`campuslink_analytics_${ver}`);
-      localStorage.removeItem(`campuslink_clean_user_${ver}`);
-      localStorage.removeItem(`campuslink_clean_committees_${ver}`);
-      localStorage.removeItem(`campuslink_clean_events_${ver}`);
-      localStorage.removeItem(`campuslink_clean_analytics_${ver}`);
-      localStorage.removeItem(`campuslink_clean_active_evt_${ver}`);
-    } catch (e) {}
-  });
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('campuslink_v6_evt_') || k.startsWith('campuslink_clean_v6_global_events'))) {
+        const raw = localStorage.getItem(k);
+        if (raw && raw.length > 300000 && raw.includes('data:image/')) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              const pruned = parsed.map(item => {
+                if (item.posterUrl && item.posterUrl.length > 50000) {
+                  return { ...item, posterUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000' };
+                }
+                return item;
+              });
+              localStorage.setItem(k, JSON.stringify(pruned));
+            }
+          } catch {}
+        }
+      }
+    }
+  } catch {}
 }
 
 // Saved Fallback Committee helper

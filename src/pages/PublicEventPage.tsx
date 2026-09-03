@@ -178,28 +178,60 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     };
   }, []);
 
-  // Find live builder draft if any exists in localStorage for instant live preview across tabs
-  let liveDraft: (Event & { committee?: Partial<Committee>; committeeName?: string; committeeHandle?: string; committeeLogoUrl?: string }) | null = null;
-  if (typeof window !== 'undefined') {
+  // Real-time live draft stream state backed by BroadcastChannel & localStorage
+  const [liveStreamDraft, setLiveStreamDraft] = useState<(Event & { committee?: Partial<Committee>; committeeName?: string; committeeHandle?: string; committeeLogoUrl?: string }) | null>(() => {
+    if (typeof window === 'undefined') return null;
     try {
-      const savedDraft = localStorage.getItem('campuslink_builder_live_draft');
-      if (savedDraft) {
-        const parsed = JSON.parse(savedDraft);
-        if (parsed && typeof parsed === 'object') {
-          liveDraft = parsed;
-        }
+      const saved = localStorage.getItem('campuslink_builder_live_draft');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Listen to BroadcastChannel for instant 0ms cross-tab updates as the organizer types
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
+        channel = new BroadcastChannel('campuslink_live_stream');
+        channel.onmessage = (e) => {
+          if (e.data?.type === 'DRAFT_UPDATE' && e.data?.draft) {
+            setLiveStreamDraft(e.data.draft);
+          }
+        };
       }
     } catch {}
-  }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'campuslink_builder_live_draft' && e.newValue) {
+        try {
+          setLiveStreamDraft(JSON.parse(e.newValue));
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      try {
+        channel?.close();
+      } catch {}
+    };
+  }, []);
+
+  const liveDraft = liveStreamDraft;
 
   // Find local context matching event (by slug, by ID, or by decoded payload ID)
   const isDraftMatch = Boolean(
-    liveDraft && targetSlug && (
+    liveDraft && (
+      !targetSlug ||
       liveDraft.slug?.toLowerCase() === targetSlug ||
       liveDraft.id === targetSlug ||
       liveDraft.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').includes(targetSlug) ||
       targetSlug.includes(liveDraft.slug?.toLowerCase() || '') ||
-      targetSlug.includes('khelaiya')
+      targetSlug.includes('khelaiya') ||
+      targetSlug === 'my-event'
     )
   );
 
@@ -212,30 +244,34 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       )
     : ((liveDraft as unknown as Event) || eventList.find(e => e.id === activeEvent?.id) || undefined);
 
-  // Match Event cleanly (prefers live builder preview > live builder draft > fresh local storage edit > fresh remote Supabase fetch > decoded URL payload > fallback)
+  // Match Event cleanly (prefers live builder preview > live stream draft > decoded URL payload > local storage edit > remote Supabase > fallback)
   const rawEvent: Event = customEvent
     || (isDraftMatch ? (liveDraft as unknown as Event) : undefined)
+    || (decodedEventFromUrl && Array.isArray(decodedEventFromUrl.links) && decodedEventFromUrl.links.length > 0 ? decodedEventFromUrl : undefined)
+    || (localEvent && Array.isArray(localEvent.links) && localEvent.links.length > 0 ? localEvent : undefined)
+    || decodedEventFromUrl
     || localEvent
     || remoteEvent
-    || decodedEventFromUrl
     || (liveDraft as unknown as Event)
     || eventList[0]
     || DEFAULT_FALLBACK_EVENT;
 
-  // Preserve links from draft, local state, active event, or any workspace event that has links
+  // Preserve links from event, live draft, decoded QR payload, local state, active event, or any workspace event that has links
   const anyWorkspaceEventWithLinks = eventList.find(e => Array.isArray(e.links) && e.links.length > 0);
 
   const resolvedLinks = (Array.isArray(rawEvent.links) && rawEvent.links.length > 0)
     ? rawEvent.links
     : (liveDraft?.links && liveDraft.links.length > 0
         ? liveDraft.links
-        : (localEvent?.links && localEvent.links.length > 0
-            ? localEvent.links
-            : (activeEvent?.links && activeEvent.links.length > 0
-                ? activeEvent.links
-                : (anyWorkspaceEventWithLinks?.links && anyWorkspaceEventWithLinks.links.length > 0
-                    ? anyWorkspaceEventWithLinks.links
-                    : (eventList.find(e => e.id === rawEvent.id || e.slug === rawEvent.slug)?.links || [])))));
+        : (decodedEventFromUrl?.links && decodedEventFromUrl.links.length > 0
+            ? (decodedEventFromUrl.links as EventLink[])
+            : (localEvent?.links && localEvent.links.length > 0
+                ? localEvent.links
+                : (activeEvent?.links && activeEvent.links.length > 0
+                    ? activeEvent.links
+                    : (anyWorkspaceEventWithLinks?.links && anyWorkspaceEventWithLinks.links.length > 0
+                        ? anyWorkspaceEventWithLinks.links
+                        : [])))));
 
   const event: Event = {
     ...rawEvent,

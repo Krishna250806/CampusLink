@@ -109,18 +109,35 @@ export const EventBuilderPage: React.FC = () => {
   const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
   const [isQrOpen, setIsQrOpen] = useState<boolean>(false);
 
-  // Debounced sync for persistent storage and cross-tab real-time updates
+  // BroadcastChannel for instant 0ms cross-tab real-time preview updates
   useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
+        channel = new BroadcastChannel('campuslink_live_stream');
+      }
+    } catch {}
+
+    const fullDraft = {
+      ...draft,
+      committee: safeCommittee,
+      committeeName: safeCommittee.name,
+      committeeHandle: safeCommittee.handle,
+      committeeLogoUrl: safeCommittee.logoUrl,
+      committeeId: safeCommittee.id
+    };
+
+    // 1. Instant 0ms broadcast across all tabs
+    try {
+      channel?.postMessage({
+        type: 'DRAFT_UPDATE',
+        draft: fullDraft
+      });
+    } catch {}
+
+    // 2. Debounced persistent storage & context update
     const timer = setTimeout(() => {
       try {
-        const fullDraft = {
-          ...draft,
-          committee: safeCommittee,
-          committeeName: safeCommittee.name,
-          committeeHandle: safeCommittee.handle,
-          committeeLogoUrl: safeCommittee.logoUrl,
-          committeeId: safeCommittee.id
-        };
         localStorage.setItem('campuslink_builder_live_draft', JSON.stringify(fullDraft));
         window.dispatchEvent(new Event('storage'));
 
@@ -129,9 +146,37 @@ export const EventBuilderPage: React.FC = () => {
           updateEvent(targetId, fullDraft);
         }
       } catch {}
-    }, 250);
-    return () => clearTimeout(timer);
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+      try {
+        channel?.close();
+      } catch {}
+    };
   }, [draft, eventId, targetEvent?.id, safeCommittee]);
+
+  // Initial mount sync: ensure draft is immediately available so live event page and QR scans have full links on first load
+  useEffect(() => {
+    try {
+      const fullDraft = {
+        ...initialEvent,
+        committee: safeCommittee,
+        committeeName: safeCommittee.name,
+        committeeHandle: safeCommittee.handle,
+        committeeLogoUrl: safeCommittee.logoUrl,
+        committeeId: safeCommittee.id
+      };
+      localStorage.setItem('campuslink_builder_live_draft', JSON.stringify(fullDraft));
+      window.dispatchEvent(new Event('storage'));
+
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('campuslink_live_stream');
+        bc.postMessage({ type: 'DRAFT_UPDATE', draft: fullDraft });
+        setTimeout(() => bc.close(), 100);
+      }
+    } catch {}
+  }, []);
 
   // Form Field Updaters
   const updateField = (key: keyof Event, val: any) => {

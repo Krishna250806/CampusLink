@@ -35,8 +35,23 @@ export const QrModal: React.FC<QrModalProps> = ({
     return localStorage.getItem(STORAGE_KEY_CUSTOM_HOST) || defaultOrigin;
   });
 
-  const event = inputEvent || DEFAULT_FALLBACK_EVENT;
+  let event = inputEvent || DEFAULT_FALLBACK_EVENT;
   const committee = inputCommittee || DEFAULT_FALLBACK_COMMITTEE;
+
+  // Ensure QR payload always includes links if available in live draft or local caches
+  if (!event.links || event.links.length === 0) {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('campuslink_builder_live_draft');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed?.links) && parsed.links.length > 0) {
+            event = { ...event, links: parsed.links };
+          }
+        }
+      } catch {}
+    }
+  }
 
   const targetSlug = event.slug || event.id || 'my-event';
   const encodedPayload = encodeEventPayload(event, committee);

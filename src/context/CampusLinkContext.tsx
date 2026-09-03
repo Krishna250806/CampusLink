@@ -92,8 +92,7 @@ const safeLocalStorageSet = (key: string, value: string) => {
             k.startsWith('campuslink_clean_v2') ||
             k.startsWith('campuslink_clean_v3') ||
             k.startsWith('campuslink_clean_v4') ||
-            k.startsWith('campuslink_clean_v5') ||
-            k === 'campuslink_builder_live_draft'
+            k.startsWith('campuslink_clean_v5')
           ) {
             keysToRemove.push(k);
           }

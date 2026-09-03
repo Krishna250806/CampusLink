@@ -222,7 +222,9 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     || eventList[0]
     || DEFAULT_FALLBACK_EVENT;
 
-  // Preserve links from draft or local state if remote payload omitted links array
+  // Preserve links from draft, local state, active event, or any workspace event that has links
+  const anyWorkspaceEventWithLinks = eventList.find(e => Array.isArray(e.links) && e.links.length > 0);
+
   const resolvedLinks = (Array.isArray(rawEvent.links) && rawEvent.links.length > 0)
     ? rawEvent.links
     : (liveDraft?.links && liveDraft.links.length > 0
@@ -231,7 +233,9 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
             ? localEvent.links
             : (activeEvent?.links && activeEvent.links.length > 0
                 ? activeEvent.links
-                : (eventList.find(e => e.id === rawEvent.id || e.slug === rawEvent.slug)?.links || []))));
+                : (anyWorkspaceEventWithLinks?.links && anyWorkspaceEventWithLinks.links.length > 0
+                    ? anyWorkspaceEventWithLinks.links
+                    : (eventList.find(e => e.id === rawEvent.id || e.slug === rawEvent.slug)?.links || [])))));
 
   const event: Event = {
     ...rawEvent,

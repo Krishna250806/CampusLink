@@ -67,33 +67,42 @@ export const EventBuilderPage: React.FC = () => {
   const isEditing = !!eventId;
   const targetEvent = events.find(e => e.id === eventId) || safeActiveEvent;
 
+  // Retrieve any existing links from live draft, target event, or workspace
+  const existingLinks: EventLink[] = (liveDraftSaved?.links && liveDraftSaved.links.length > 0)
+    ? (liveDraftSaved.links as EventLink[])
+    : (targetEvent?.links && targetEvent.links.length > 0)
+    ? targetEvent.links
+    : (events.find(e => Array.isArray(e.links) && e.links.length > 0)?.links || []);
+
   const initialEvent: Partial<Event> = (isEditing && targetEvent)
     ? {
         ...targetEvent,
-        ...(liveDraftSaved && (liveDraftSaved.id === targetEvent.id || liveDraftSaved.slug === targetEvent.slug) ? liveDraftSaved : {})
+        links: existingLinks,
+        ...(liveDraftSaved || {})
       }
-    : (liveDraftSaved || {
-        title: targetEvent?.title && targetEvent.title !== DEFAULT_FALLBACK_EVENT.title ? targetEvent.title : "MY CAMPUS FEST 2026",
-        tagline: targetEvent?.tagline || "Build. Connect. Innovate.",
-        description: targetEvent?.description || "Annual campus festival bringing together top student developers, artists, and creators.",
-        posterUrl: targetEvent?.posterUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000",
-        startDate: targetEvent?.startDate || new Date(Date.now() + 86400000 * 14).toISOString(),
-        endDate: targetEvent?.endDate || new Date(Date.now() + 86400000 * 16).toISOString(),
-        venue: targetEvent?.venue || "Main Auditorium & Quadrangle",
-        address: targetEvent?.address || "Campus Gate 1, XYZ University",
-        mapsUrl: targetEvent?.mapsUrl || "https://maps.google.com",
-        primaryCtaText: targetEvent?.primaryCtaText || "Register Now",
-        primaryCtaUrl: targetEvent?.primaryCtaUrl || "https://forms.google.com",
-        themeId: targetEvent?.themeId || "midnight",
-        customAccentColor: targetEvent?.customAccentColor || "#fafafa",
+    : {
+        ...(liveDraftSaved || {}),
+        title: liveDraftSaved?.title || (targetEvent?.title && targetEvent.title !== DEFAULT_FALLBACK_EVENT.title ? targetEvent.title : "MY CAMPUS FEST 2026"),
+        tagline: liveDraftSaved?.tagline || targetEvent?.tagline || "Build. Connect. Innovate.",
+        description: liveDraftSaved?.description || targetEvent?.description || "Annual campus festival bringing together top student developers, artists, and creators.",
+        posterUrl: liveDraftSaved?.posterUrl || targetEvent?.posterUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000",
+        startDate: liveDraftSaved?.startDate || targetEvent?.startDate || new Date(Date.now() + 86400000 * 14).toISOString(),
+        endDate: liveDraftSaved?.endDate || targetEvent?.endDate || new Date(Date.now() + 86400000 * 16).toISOString(),
+        venue: liveDraftSaved?.venue || targetEvent?.venue || "Main Auditorium & Quadrangle",
+        address: liveDraftSaved?.address || targetEvent?.address || "Campus Gate 1, XYZ University",
+        mapsUrl: liveDraftSaved?.mapsUrl || targetEvent?.mapsUrl || "https://maps.google.com",
+        primaryCtaText: liveDraftSaved?.primaryCtaText || targetEvent?.primaryCtaText || "Register Now",
+        primaryCtaUrl: liveDraftSaved?.primaryCtaUrl || targetEvent?.primaryCtaUrl || "https://forms.google.com",
+        themeId: liveDraftSaved?.themeId || targetEvent?.themeId || "midnight",
+        customAccentColor: liveDraftSaved?.customAccentColor || targetEvent?.customAccentColor || "#fafafa",
         organizerContact: {
           name: safeCommittee.name,
           email: "events@campuslink.app",
           phone: "+1 555-0199"
         },
-        links: targetEvent?.links || [],
+        links: existingLinks,
         announcements: targetEvent?.announcements || []
-      });
+      };
 
   const [draft, setDraft] = useState<Partial<Event>>(initialEvent);
   const [currentStep, setCurrentStep] = useState<number>(1);

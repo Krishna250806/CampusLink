@@ -82,23 +82,23 @@ export const EventBuilderPage: React.FC = () => {
       }
     : {
         ...(liveDraftSaved || {}),
-        title: liveDraftSaved?.title || (targetEvent?.title && targetEvent.title !== DEFAULT_FALLBACK_EVENT.title ? targetEvent.title : "MY CAMPUS FEST 2026"),
-        tagline: liveDraftSaved?.tagline || targetEvent?.tagline || "Build. Connect. Innovate.",
-        description: liveDraftSaved?.description || targetEvent?.description || "Annual campus festival bringing together top student developers, artists, and creators.",
-        posterUrl: liveDraftSaved?.posterUrl || targetEvent?.posterUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000",
-        startDate: liveDraftSaved?.startDate || targetEvent?.startDate || new Date(Date.now() + 86400000 * 14).toISOString(),
-        endDate: liveDraftSaved?.endDate || targetEvent?.endDate || new Date(Date.now() + 86400000 * 16).toISOString(),
-        venue: liveDraftSaved?.venue || targetEvent?.venue || "Main Auditorium & Quadrangle",
-        address: liveDraftSaved?.address || targetEvent?.address || "Campus Gate 1, XYZ University",
-        mapsUrl: liveDraftSaved?.mapsUrl || targetEvent?.mapsUrl || "https://maps.google.com",
+        title: liveDraftSaved?.title || (targetEvent?.title && targetEvent.title !== DEFAULT_FALLBACK_EVENT.title ? targetEvent.title : ""),
+        tagline: liveDraftSaved?.tagline || (targetEvent?.tagline && targetEvent.tagline !== DEFAULT_FALLBACK_EVENT.tagline ? targetEvent.tagline : ""),
+        description: liveDraftSaved?.description || (targetEvent?.description && targetEvent.description !== DEFAULT_FALLBACK_EVENT.description ? targetEvent.description : ""),
+        posterUrl: liveDraftSaved?.posterUrl || (targetEvent?.posterUrl && targetEvent.posterUrl !== DEFAULT_FALLBACK_EVENT.posterUrl ? targetEvent.posterUrl : ""),
+        startDate: liveDraftSaved?.startDate || targetEvent?.startDate || new Date(Date.now() + 86400000 * 7).toISOString(),
+        endDate: liveDraftSaved?.endDate || targetEvent?.endDate || new Date(Date.now() + 86400000 * 9).toISOString(),
+        venue: liveDraftSaved?.venue || (targetEvent?.venue && targetEvent.venue !== DEFAULT_FALLBACK_EVENT.venue ? targetEvent.venue : ""),
+        address: liveDraftSaved?.address || (targetEvent?.address && targetEvent.address !== DEFAULT_FALLBACK_EVENT.address ? targetEvent.address : ""),
+        mapsUrl: liveDraftSaved?.mapsUrl || targetEvent?.mapsUrl || "",
         primaryCtaText: liveDraftSaved?.primaryCtaText || targetEvent?.primaryCtaText || "Register Now",
-        primaryCtaUrl: liveDraftSaved?.primaryCtaUrl || targetEvent?.primaryCtaUrl || "https://forms.google.com",
-        themeId: liveDraftSaved?.themeId || targetEvent?.themeId || "midnight",
+        primaryCtaUrl: liveDraftSaved?.primaryCtaUrl || targetEvent?.primaryCtaUrl || "",
+        themeId: liveDraftSaved?.themeId || targetEvent?.themeId || "popbrutalist",
         customAccentColor: liveDraftSaved?.customAccentColor || targetEvent?.customAccentColor || "#fafafa",
         organizerContact: {
           name: safeCommittee.name,
-          email: "events@campuslink.app",
-          phone: "+1 555-0199"
+          email: "",
+          phone: ""
         },
         links: existingLinks,
         announcements: targetEvent?.announcements || []

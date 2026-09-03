@@ -31,8 +31,6 @@ interface CountdownState {
   seconds: number;
 }
 
-import { DEFAULT_FALLBACK_COMMITTEE, DEFAULT_FALLBACK_EVENT } from '../context/CampusLinkContext';
-
 export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any }> = ({
   isPreview = false,
   customEvent
@@ -175,27 +173,34 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     const decoded = decodeEventPayload(encodedData);
     if (decoded && decoded.event) {
       decodedEventFromUrl = {
-        ...DEFAULT_FALLBACK_EVENT,
-        id: targetSlug || DEFAULT_FALLBACK_EVENT.id,
-        slug: targetSlug || DEFAULT_FALLBACK_EVENT.slug,
-        title: decoded.event.title || DEFAULT_FALLBACK_EVENT.title,
-        tagline: decoded.event.tagline || DEFAULT_FALLBACK_EVENT.tagline,
-        description: decoded.event.description || DEFAULT_FALLBACK_EVENT.description,
-        posterUrl: decoded.event.posterUrl || DEFAULT_FALLBACK_EVENT.posterUrl,
-        startDate: decoded.event.startDate || DEFAULT_FALLBACK_EVENT.startDate,
-        endDate: decoded.event.endDate || DEFAULT_FALLBACK_EVENT.endDate,
-        venue: decoded.event.venue || DEFAULT_FALLBACK_EVENT.venue,
-        address: decoded.event.address || DEFAULT_FALLBACK_EVENT.address,
-        mapsUrl: decoded.event.mapsUrl || DEFAULT_FALLBACK_EVENT.mapsUrl,
-        primaryCtaText: decoded.event.primaryCtaText || DEFAULT_FALLBACK_EVENT.primaryCtaText,
-        primaryCtaUrl: decoded.event.primaryCtaUrl || DEFAULT_FALLBACK_EVENT.primaryCtaUrl,
-        themeId: (decoded.event.themeId as any) || DEFAULT_FALLBACK_EVENT.themeId,
-        customAccentColor: decoded.event.customAccentColor || DEFAULT_FALLBACK_EVENT.customAccentColor,
+        id: targetSlug || decoded.event.id || 'evt_live',
+        slug: targetSlug || decoded.event.slug || 'event',
+        userId: decoded.event.userId || 'usr_guest',
+        committeeId: decoded.event.committeeId || 'comm_custom',
+        title: decoded.event.title || '',
+        tagline: decoded.event.tagline || '',
+        description: decoded.event.description || '',
+        posterUrl: decoded.event.posterUrl || '',
+        startDate: decoded.event.startDate || '',
+        endDate: decoded.event.endDate || '',
+        venue: decoded.event.venue || '',
+        address: decoded.event.address || '',
+        mapsUrl: decoded.event.mapsUrl || '',
+        primaryCtaText: decoded.event.primaryCtaText || 'Register Now',
+        primaryCtaUrl: decoded.event.primaryCtaUrl || '',
+        themeId: (decoded.event.themeId as any) || 'popbrutalist',
+        customAccentColor: decoded.event.customAccentColor || '#fafafa',
         bgSvgPattern: decoded.event.bgSvgPattern || '',
         committeeName: decoded.committee?.name || '',
         committeeHandle: decoded.committee?.handle || '',
         committeeLogoUrl: decoded.committee?.logoUrl || '',
-        links: (decoded.event.links && decoded.event.links.length > 0) ? (decoded.event.links as EventLink[]) : DEFAULT_FALLBACK_EVENT.links
+        links: Array.isArray(decoded.event.links) ? (decoded.event.links as EventLink[]) : [],
+        status: 'published',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        announcements: [],
+        schedule: [],
+        rulebook: []
       } as any;
     }
   }
@@ -289,41 +294,54 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     || localEvent
     || (liveDraft as unknown as Event)
     || eventList[0]
-    || DEFAULT_FALLBACK_EVENT;
+    || {
+        id: targetSlug || 'evt_live',
+        committeeId: 'comm_live',
+        slug: targetSlug || 'event',
+        title: 'Event',
+        tagline: '',
+        description: '',
+        posterUrl: '',
+        startDate: '',
+        endDate: '',
+        venue: '',
+        address: '',
+        mapsUrl: '',
+        primaryCtaText: 'Register Now',
+        primaryCtaUrl: '',
+        themeId: 'popbrutalist',
+        customAccentColor: '#fafafa',
+        status: 'published',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        announcements: [],
+        links: []
+      };
 
-  // Preserve links from event, live draft, fresh remote server/Supabase, decoded QR payload, local state, active event, or any workspace event that has links
-  const anyWorkspaceEventWithLinks = eventList.find(e => Array.isArray(e.links) && e.links.length > 0);
-
-  const resolvedLinks = (Array.isArray(rawEvent.links) && rawEvent.links.length > 0)
+  // Only show links that belong strictly to this specific event
+  const resolvedLinks: EventLink[] = (Array.isArray(rawEvent.links) && rawEvent.links.length > 0)
     ? rawEvent.links
-    : (liveDraft?.links && liveDraft.links.length > 0
-        ? liveDraft.links
-        : (remoteEvent?.links && remoteEvent.links.length > 0
-            ? remoteEvent.links
-            : (decodedEventFromUrl?.links && decodedEventFromUrl.links.length > 0
-                ? (decodedEventFromUrl.links as EventLink[])
+    : (remoteEvent?.links && remoteEvent.links.length > 0
+        ? remoteEvent.links
+        : (decodedEventFromUrl?.links && decodedEventFromUrl.links.length > 0
+            ? (decodedEventFromUrl.links as EventLink[])
+            : (liveDraft?.links && liveDraft.links.length > 0
+                ? liveDraft.links
                 : (localEvent?.links && localEvent.links.length > 0
                     ? localEvent.links
-                    : (activeEvent?.links && activeEvent.links.length > 0
-                        ? activeEvent.links
-                        : (anyWorkspaceEventWithLinks?.links && anyWorkspaceEventWithLinks.links.length > 0
-                            ? anyWorkspaceEventWithLinks.links
-                            : []))))));
+                    : []))));
 
   const event: Event = {
     ...rawEvent,
     links: resolvedLinks
   };
 
-  // Match Committee based on resolved event, handle, custom updated committee, remote Supabase committee, or active workspace committee
+  // Match Committee based on user-defined data
   const cleanHandleParam = (handle || '').toLowerCase().replace(/^@/, '');
 
-  // Helper to know if a committee is the generic default unconfigured committee
   const isDefaultCommittee = (c?: Partial<Committee> | null) => {
     if (!c) return true;
-    const isDefaultName = !c.name || c.name === 'My Student Committee';
-    const isDefaultHandle = !c.handle || c.handle === 'my-org';
-    return isDefaultName && isDefaultHandle;
+    return c.name === 'My Student Committee' && c.handle === 'my-org';
   };
 
   // Check draft or decoded payload committee
@@ -345,33 +363,13 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
         }
       : undefined);
 
-  // Check saved committee in localStorage
-  let savedLocalFallback: Partial<Committee> | null = null;
-  if (typeof window !== 'undefined') {
-    try {
-      const saved = localStorage.getItem('campuslink_fallback_committee_v1');
-      if (saved) savedLocalFallback = JSON.parse(saved);
-    } catch {}
-  }
-
-  // Active or explicit custom committee from list
-  const customCommInList =
-    (!isDefaultCommittee(committeeFromDraftOrPayload) ? committeeFromDraftOrPayload : undefined) ||
-    committeeList.find(c => !isDefaultCommittee(c)) ||
-    (!isDefaultCommittee(activeCommittee) ? activeCommittee : undefined) ||
-    (!isDefaultCommittee(savedLocalFallback) ? savedLocalFallback : undefined);
-
   const matchedCommittee =
     (cleanHandleParam ? committeeList.find(c => c.handle?.toLowerCase() === cleanHandleParam) : undefined) ||
     (committeeFromDraftOrPayload && !isDefaultCommittee(committeeFromDraftOrPayload) ? committeeFromDraftOrPayload : undefined) ||
-    committeeList.find(c => c.id === event?.committeeId && !isDefaultCommittee(c)) ||
     (remoteCommittee && !isDefaultCommittee(remoteCommittee) ? remoteCommittee : undefined) ||
-    customCommInList ||
+    committeeList.find(c => c.id === event?.committeeId && !isDefaultCommittee(c)) ||
     (!isDefaultCommittee(activeCommittee) ? activeCommittee : undefined) ||
-    committeeList.find(c => c.id === event?.committeeId) ||
-    activeCommittee ||
-    committeeList[0] ||
-    DEFAULT_FALLBACK_COMMITTEE;
+    activeCommittee;
 
   const rawLogo =
     (committeeFromDraftOrPayload?.logoUrl && !committeeFromDraftOrPayload.logoUrl.includes('data:image/svg+xml;utf8,<svg'))
@@ -380,45 +378,43 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       ? matchedCommittee.logoUrl
       : (event as any)?.committeeLogoUrl ||
         (event as any)?.committee?.logoUrl ||
-        (savedLocalFallback?.logoUrl && !savedLocalFallback.logoUrl.includes('data:image/svg+xml;utf8,<svg') ? savedLocalFallback.logoUrl : undefined) ||
-        (activeCommittee?.logoUrl && !activeCommittee.logoUrl.includes('data:image/svg+xml;utf8,<svg') ? activeCommittee.logoUrl : undefined) ||
-        matchedCommittee?.logoUrl ||
-        DEFAULT_FALLBACK_COMMITTEE.logoUrl;
+        activeCommittee?.logoUrl ||
+        '';
 
   const committeeLogo = (rawLogo && rawLogo.startsWith('http'))
     ? `${rawLogo}${rawLogo.includes('?') ? '&' : '?'}v=${matchedCommittee?.updatedAt || '1'}`
-    : (rawLogo || DEFAULT_FALLBACK_COMMITTEE.logoUrl);
+    : rawLogo;
 
   const committeeName =
     (!isDefaultCommittee(committeeFromDraftOrPayload) ? committeeFromDraftOrPayload?.name : undefined) ||
     (!isDefaultCommittee(matchedCommittee) ? matchedCommittee?.name : undefined) ||
     (event as any)?.committeeName ||
     (event as any)?.committee?.name ||
-    (!isDefaultCommittee(savedLocalFallback) ? savedLocalFallback?.name : undefined) ||
     (!isDefaultCommittee(activeCommittee) ? activeCommittee?.name : undefined) ||
     matchedCommittee?.name ||
-    DEFAULT_FALLBACK_COMMITTEE.name;
+    activeCommittee?.name ||
+    'Student Committee';
 
   const committeeHandle =
     (committeeFromDraftOrPayload?.handle && committeeFromDraftOrPayload.handle !== 'my-org' ? committeeFromDraftOrPayload.handle : undefined) ||
     (matchedCommittee?.handle && matchedCommittee.handle !== 'my-org' ? matchedCommittee.handle : undefined) ||
     (event as any)?.committeeHandle ||
     (event as any)?.committee?.handle ||
-    (savedLocalFallback?.handle && savedLocalFallback.handle !== 'my-org' ? savedLocalFallback.handle : undefined) ||
     (cleanHandleParam && cleanHandleParam !== 'events' ? cleanHandleParam : undefined) ||
     (activeCommittee?.handle && activeCommittee.handle !== 'my-org' ? activeCommittee.handle : undefined) ||
     matchedCommittee?.handle ||
-    DEFAULT_FALLBACK_COMMITTEE.handle;
+    activeCommittee?.handle ||
+    'committee';
 
   const committee: Committee = {
-    id: matchedCommittee?.id || event?.committeeId || DEFAULT_FALLBACK_COMMITTEE.id,
+    id: matchedCommittee?.id || event?.committeeId || 'comm_custom',
     handle: committeeHandle,
     name: committeeName,
     logoUrl: committeeLogo,
-    tagline: matchedCommittee?.tagline || (event as any)?.committee?.tagline || DEFAULT_FALLBACK_COMMITTEE.tagline,
-    description: matchedCommittee?.description || (event as any)?.committee?.description || DEFAULT_FALLBACK_COMMITTEE.description,
-    socials: matchedCommittee?.socials || (event as any)?.committee?.socials || DEFAULT_FALLBACK_COMMITTEE.socials,
-    verified: matchedCommittee?.verified ?? (event as any)?.committee?.verified ?? DEFAULT_FALLBACK_COMMITTEE.verified,
+    tagline: matchedCommittee?.tagline || (event as any)?.committee?.tagline || '',
+    description: matchedCommittee?.description || (event as any)?.committee?.description || '',
+    socials: matchedCommittee?.socials || (event as any)?.committee?.socials || {},
+    verified: matchedCommittee?.verified ?? (event as any)?.committee?.verified ?? false,
     members: matchedCommittee?.members || []
   };
 
@@ -546,14 +542,17 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       {!isPreview && (
         <header className="sticky top-0 z-40 px-4 py-3 bg-neutral-950/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between">
           <Link to={`/@${committee.handle}`} className="flex items-center gap-2 text-xs font-semibold hover:opacity-80 transition-opacity">
-            <img
-              src={committee.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl}
-              alt={committee.name}
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:4px"><rect width="18" height="18" x="3" y="3" rx="4"/><path d="m9 12 2 2 4-4"/></svg>';
-              }}
-              className="w-6 h-6 rounded-full object-cover border border-white/20 bg-neutral-900"
-            />
+            {committee.logoUrl ? (
+              <img
+                src={committee.logoUrl}
+                alt={committee.name}
+                className="w-6 h-6 rounded-full object-cover border border-white/20 bg-neutral-900"
+              />
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-white/20 text-white flex items-center justify-center text-[10px] font-bold uppercase">
+                {committee.name ? committee.name.charAt(0) : 'C'}
+              </div>
+            )}
             <span className="truncate max-w-[140px] font-mono opacity-90">@{committee.handle}</span>
           </Link>
 
@@ -585,26 +584,31 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
         {/* HERO SECTION */}
         <section className="relative rounded-3xl overflow-hidden border border-white/15 shadow-2xl bg-slate-900/60 backdrop-blur-xl">
           {/* Poster Background / Banner */}
-          <div className="relative h-48 sm:h-60 w-full overflow-hidden">
-            <img
-              src={event.posterUrl}
-              alt={event.title}
-              className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
-            />
+          <div className="relative h-48 sm:h-60 w-full overflow-hidden bg-gradient-to-br from-neutral-900 via-zinc-950 to-neutral-900">
+            {event.posterUrl ? (
+              <img
+                src={event.posterUrl}
+                alt={event.title}
+                className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-700"
+              />
+            ) : null}
             {/* Gradient Overlays */}
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950/60 via-transparent to-slate-950/60" />
 
             {/* Committee Floating Badge */}
             <div className="absolute top-4 left-4 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/15 text-xs font-medium text-white shadow-lg">
-              <img
-                src={committee.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl}
-                alt={committee.name}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:4px"><rect width="18" height="18" x="3" y="3" rx="4"/><path d="m9 12 2 2 4-4"/></svg>';
-                }}
-                className="w-4 h-4 rounded-full object-cover bg-neutral-900"
-              />
+              {committee.logoUrl ? (
+                <img
+                  src={committee.logoUrl}
+                  alt={committee.name}
+                  className="w-4 h-4 rounded-full object-cover bg-neutral-900"
+                />
+              ) : (
+                <div className="w-4 h-4 rounded-full bg-white/20 text-white flex items-center justify-center text-[9px] font-bold uppercase">
+                  {committee.name ? committee.name.charAt(0) : 'C'}
+                </div>
+              )}
               <span>{committee.name}</span>
               {committee.verified && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
             </div>
@@ -614,23 +618,29 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
           <div className="p-5 sm:p-7 relative -mt-10 space-y-5">
             <div>
               <h1 className="text-3xl sm:text-4xl font-black font-heading tracking-tight leading-tight drop-shadow-md text-white">
-                {event.title}
+                {event.title || 'Untitled Event'}
               </h1>
-              <p className="text-base sm:text-lg font-medium opacity-90 mt-1 font-sans italic text-zinc-300">
-                "{event.tagline}"
-              </p>
+              {event.tagline && (
+                <p className="text-base sm:text-lg font-medium opacity-90 mt-1 font-sans italic text-zinc-300">
+                  "{event.tagline}"
+                </p>
+              )}
             </div>
 
             {/* Venue & Date Meta Rows */}
             <div className="space-y-2 text-xs sm:text-sm opacity-85 font-medium">
-              <div className="flex items-center gap-2.5">
-                <Calendar className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span>{startDateStr} — {endDateStr}</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <MapPin className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span className="truncate">{event.venue} • {event.address}</span>
-              </div>
+              {(startDateStr || endDateStr) && (
+                <div className="flex items-center gap-2.5">
+                  <Calendar className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>{startDateStr}{endDateStr && endDateStr !== startDateStr ? ` — ${endDateStr}` : ''}</span>
+                </div>
+              )}
+              {(event.venue || event.address) && (
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span className="truncate">{event.venue}{event.address && event.venue ? ` • ${event.address}` : (event.address || '')}</span>
+                </div>
+              )}
             </div>
 
             {/* Live Countdown Timer */}

@@ -145,6 +145,17 @@ export const EventBuilderPage: React.FC = () => {
         if (targetId) {
           updateEvent(targetId, fullDraft);
         }
+
+        // Post to server for cross-device sync (e.g. mobile phone refresh without rescanning)
+        fetch('/api/live-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slug: fullDraft.slug,
+            event: fullDraft,
+            committee: safeCommittee
+          })
+        }).catch(() => {});
       } catch {}
     }, 150);
 
@@ -175,6 +186,16 @@ export const EventBuilderPage: React.FC = () => {
         bc.postMessage({ type: 'DRAFT_UPDATE', draft: fullDraft });
         setTimeout(() => bc.close(), 100);
       }
+
+      fetch('/api/live-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: fullDraft.slug,
+          event: fullDraft,
+          committee: safeCommittee
+        })
+      }).catch(() => {});
     } catch {}
   }, []);
 

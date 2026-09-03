@@ -51,82 +51,108 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   const committeeList = allCommittees && allCommittees.length > 0 ? allCommittees : committees;
   const eventList = allEvents && allEvents.length > 0 ? allEvents : events;
 
-  // Live Supabase DB Sync for QR Code scanners & external visitors
+  // Live Server & DB Sync for QR Code scanners, phone refreshes & external visitors
   useEffect(() => {
-    if (!targetSlug || !isSupabaseConfigured()) return;
+    let isMounted = true;
 
-    const fetchSupabaseEvent = async () => {
+    const fetchLiveEvent = async () => {
+      // 1. Try local server live sync API (works across all devices on local network / Vite dev server)
       try {
-        const { data, error } = await supabase
-          .from('events')
-          .select('*')
-          .or(`slug.eq.${targetSlug},id.eq.${targetSlug}`)
-          .maybeSingle();
-
-        if (data && !error) {
-          const fetched: Event = {
-            id: data.id,
-            userId: data.user_id,
-            committeeId: data.committee_id,
-            slug: data.slug,
-            title: data.title,
-            tagline: data.tagline || '',
-            description: data.description || '',
-            posterUrl: data.poster_url || '',
-            startDate: data.start_date,
-            endDate: data.end_date,
-            venue: data.venue || '',
-            address: data.address || '',
-            mapsUrl: data.maps_url || '',
-            primaryCtaText: data.primary_cta_text || 'Register Now',
-            primaryCtaUrl: data.primary_cta_url || '',
-            organizerContact: data.organizer_contact || {},
-            themeId: data.theme_id || 'midnight',
-            customAccentColor: data.custom_accent_color || '#fafafa',
-            bgSvgPattern: data.bg_svg_pattern || '',
-            status: data.status || 'published',
-            createdAt: data.created_at || new Date().toISOString(),
-            updatedAt: data.updated_at || new Date().toISOString(),
-            announcements: Array.isArray(data.announcements) ? data.announcements : [],
-            schedule: Array.isArray(data.schedule) ? data.schedule : [],
-            rulebook: Array.isArray(data.rulebook) ? data.rulebook : [],
-            links: Array.isArray(data.links) && data.links.length > 0 ? data.links : []
-          };
-          setRemoteEvent(fetched);
-
-          // Fetch matching remote committee details from Supabase committees table
-          if (data.committee_id || data.user_id) {
-            const { data: commData } = await supabase
-              .from('committees')
-              .select('*')
-              .or(`id.eq.${data.committee_id},user_id.eq.${data.user_id}`)
-              .maybeSingle();
-
-            if (commData) {
-              setRemoteCommittee({
-                id: commData.id,
-                userId: commData.user_id,
-                handle: commData.handle || 'org',
-                name: commData.name || 'Student Committee',
-                tagline: commData.tagline || '',
-                logoUrl: commData.logo_url || '',
-                coverUrl: commData.cover_url || '',
-                description: commData.description || '',
-                socials: commData.socials || {},
-                members: [],
-                verified: Boolean(commData.verified)
-              });
+        const querySlug = targetSlug || 'latest';
+        const res = await fetch(`/api/live-sync?slug=${encodeURIComponent(querySlug)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.event && isMounted) {
+            setRemoteEvent(json.event);
+            if (json.committee) {
+              setRemoteCommittee(json.committee);
             }
+            return;
           }
         }
-      } catch (err) {}
+      } catch (e) {
+        // Fall through to Supabase
+      }
+
+      // 2. Try Supabase if configured
+      if (isSupabaseConfigured() && targetSlug) {
+        try {
+          const { data, error } = await supabase
+            .from('events')
+            .select('*')
+            .or(`slug.eq.${targetSlug},id.eq.${targetSlug}`)
+            .maybeSingle();
+
+          if (data && !error && isMounted) {
+            const fetched: Event = {
+              id: data.id,
+              userId: data.user_id,
+              committeeId: data.committee_id,
+              slug: data.slug,
+              title: data.title,
+              tagline: data.tagline || '',
+              description: data.description || '',
+              posterUrl: data.poster_url || '',
+              startDate: data.start_date,
+              endDate: data.end_date,
+              venue: data.venue || '',
+              address: data.address || '',
+              mapsUrl: data.maps_url || '',
+              primaryCtaText: data.primary_cta_text || 'Register Now',
+              primaryCtaUrl: data.primary_cta_url || '',
+              organizerContact: data.organizer_contact || {},
+              themeId: data.theme_id || 'midnight',
+              customAccentColor: data.custom_accent_color || '#fafafa',
+              bgSvgPattern: data.bg_svg_pattern || '',
+              status: data.status || 'published',
+              createdAt: data.created_at || new Date().toISOString(),
+              updatedAt: data.updated_at || new Date().toISOString(),
+              announcements: Array.isArray(data.announcements) ? data.announcements : [],
+              schedule: Array.isArray(data.schedule) ? data.schedule : [],
+              rulebook: Array.isArray(data.rulebook) ? data.rulebook : [],
+              links: Array.isArray(data.links) && data.links.length > 0 ? data.links : []
+            };
+            setRemoteEvent(fetched);
+
+            // Fetch matching remote committee details from Supabase committees table
+            if (data.committee_id || data.user_id) {
+              const { data: commData } = await supabase
+                .from('committees')
+                .select('*')
+                .or(`id.eq.${data.committee_id},user_id.eq.${data.user_id}`)
+                .maybeSingle();
+
+              if (commData && isMounted) {
+                setRemoteCommittee({
+                  id: commData.id,
+                  userId: commData.user_id,
+                  handle: commData.handle || 'org',
+                  name: commData.name || 'Student Committee',
+                  tagline: commData.tagline || '',
+                  logoUrl: commData.logo_url || '',
+                  coverUrl: commData.cover_url || '',
+                  description: commData.description || '',
+                  socials: commData.socials || {},
+                  members: [],
+                  verified: Boolean(commData.verified)
+                });
+              }
+            }
+          }
+        } catch (err) {}
+      }
     };
 
-    fetchSupabaseEvent();
+    fetchLiveEvent();
 
-    // Auto-refetch when user switches back to browser tab or reloads
-    window.addEventListener('focus', fetchSupabaseEvent);
-    return () => window.removeEventListener('focus', fetchSupabaseEvent);
+    // Auto-poll every 2.5s for live cross-device updates & on tab focus
+    const interval = setInterval(fetchLiveEvent, 2500);
+    window.addEventListener('focus', fetchLiveEvent);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', fetchLiveEvent);
+    };
   }, [targetSlug]);
 
   // Decode URL payload if present (for 100% instant zero-backend QR scanner accuracy)
@@ -244,34 +270,37 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       )
     : ((liveDraft as unknown as Event) || eventList.find(e => e.id === activeEvent?.id) || undefined);
 
-  // Match Event cleanly (prefers live builder preview > live stream draft > decoded URL payload > local storage edit > remote Supabase > fallback)
+  // Match Event cleanly (prefers live builder preview > live stream draft > fresh remote server/Supabase > decoded URL payload > local storage > fallback)
   const rawEvent: Event = customEvent
     || (isDraftMatch ? (liveDraft as unknown as Event) : undefined)
+    || (remoteEvent && Array.isArray(remoteEvent.links) && remoteEvent.links.length > 0 ? remoteEvent : undefined)
+    || remoteEvent
     || (decodedEventFromUrl && Array.isArray(decodedEventFromUrl.links) && decodedEventFromUrl.links.length > 0 ? decodedEventFromUrl : undefined)
     || (localEvent && Array.isArray(localEvent.links) && localEvent.links.length > 0 ? localEvent : undefined)
     || decodedEventFromUrl
     || localEvent
-    || remoteEvent
     || (liveDraft as unknown as Event)
     || eventList[0]
     || DEFAULT_FALLBACK_EVENT;
 
-  // Preserve links from event, live draft, decoded QR payload, local state, active event, or any workspace event that has links
+  // Preserve links from event, live draft, fresh remote server/Supabase, decoded QR payload, local state, active event, or any workspace event that has links
   const anyWorkspaceEventWithLinks = eventList.find(e => Array.isArray(e.links) && e.links.length > 0);
 
   const resolvedLinks = (Array.isArray(rawEvent.links) && rawEvent.links.length > 0)
     ? rawEvent.links
     : (liveDraft?.links && liveDraft.links.length > 0
         ? liveDraft.links
-        : (decodedEventFromUrl?.links && decodedEventFromUrl.links.length > 0
-            ? (decodedEventFromUrl.links as EventLink[])
-            : (localEvent?.links && localEvent.links.length > 0
-                ? localEvent.links
-                : (activeEvent?.links && activeEvent.links.length > 0
-                    ? activeEvent.links
-                    : (anyWorkspaceEventWithLinks?.links && anyWorkspaceEventWithLinks.links.length > 0
-                        ? anyWorkspaceEventWithLinks.links
-                        : [])))));
+        : (remoteEvent?.links && remoteEvent.links.length > 0
+            ? remoteEvent.links
+            : (decodedEventFromUrl?.links && decodedEventFromUrl.links.length > 0
+                ? (decodedEventFromUrl.links as EventLink[])
+                : (localEvent?.links && localEvent.links.length > 0
+                    ? localEvent.links
+                    : (activeEvent?.links && activeEvent.links.length > 0
+                        ? activeEvent.links
+                        : (anyWorkspaceEventWithLinks?.links && anyWorkspaceEventWithLinks.links.length > 0
+                            ? anyWorkspaceEventWithLinks.links
+                            : []))))));
 
   const event: Event = {
     ...rawEvent,

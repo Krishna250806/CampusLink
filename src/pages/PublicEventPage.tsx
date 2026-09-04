@@ -537,14 +537,45 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   };
 
   const currentTheme = event.themeId || 'midnight';
-  const themeClass = `theme-${currentTheme}`;
-  const accentColor = event.customAccentColor || DEFAULT_THEME_ACCENTS[currentTheme] || '#fafafa';
+  const customConfig = event.customThemeConfig;
+  const isCustom = currentTheme === 'custom' || currentTheme.startsWith('custom') || !!customConfig;
+  const themeClass = isCustom ? 'theme-custom' : `theme-${currentTheme}`;
+  const accentColor = event.customAccentColor || customConfig?.accentColor || DEFAULT_THEME_ACCENTS[currentTheme] || '#fafafa';
   const ctaTextColor = getContrastColor(accentColor);
+
+  const customStyles: React.CSSProperties = {
+    '--accent-color': accentColor,
+    ...(isCustom && customConfig ? {
+      '--custom-bg': customConfig.bgGradientEnd
+        ? `linear-gradient(135deg, ${customConfig.bgColor} 0%, ${customConfig.bgGradientEnd} 100%)`
+        : customConfig.bgColor,
+      '--custom-text': customConfig.textColor,
+      '--custom-subtext': customConfig.subtextColor,
+      '--custom-card-bg': customConfig.cardBgColor,
+      '--custom-card-bg-solid': customConfig.bgColor,
+      '--custom-card-border': customConfig.cardBorderColor,
+      '--custom-accent': accentColor,
+      '--custom-font':
+        customConfig.fontFamily === 'serif' ? 'Georgia, serif'
+        : customConfig.fontFamily === 'mono' ? 'ui-monospace, monospace'
+        : customConfig.fontFamily === 'display' ? 'Cabinet Grotesk, sans-serif'
+        : 'Inter, system-ui, sans-serif',
+      '--custom-radius':
+        customConfig.borderRadius === 'rounded-3xl' ? '28px'
+        : customConfig.borderRadius === 'rounded-xl' ? '12px'
+        : '20px',
+      '--custom-card-blur': customConfig.cardStyle === 'glass' ? 'blur(16px)' : 'none',
+      '--custom-card-shadow':
+        customConfig.cardStyle === 'brutalist' ? '4px 4px 0px #000000'
+        : customConfig.cardStyle === 'flat' ? 'none'
+        : '0 12px 32px -8px rgba(0,0,0,0.35)',
+    } : {})
+  } as React.CSSProperties;
 
   return (
     <div
       className={`min-h-screen w-full transition-colors duration-300 pb-12 relative overflow-hidden ${themeClass}`}
-      style={{ '--accent-color': accentColor } as React.CSSProperties}
+      style={customStyles}
     >
       {/* Top Floating Action Bar (QR & Share) */}
       {!isPreview && (

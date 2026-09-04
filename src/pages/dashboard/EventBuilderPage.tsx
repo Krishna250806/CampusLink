@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCampusLink } from '../../context/CampusLinkContext';
-import type { Event, ThemeId, EventLink } from '../../types/campuslink';
+import type { Event, ThemeId, EventLink, CustomThemeConfig } from '../../types/campuslink';
 import { PhoneMockup } from '../../components/phone/PhoneMockup';
 import { PublicEventPage } from '../PublicEventPage';
 import { compressImage } from '../../utils/imageCompressor';
+import { CustomThemeModal } from '../../components/common/CustomThemeModal';
 import {
   Rocket,
   ChevronRight,
@@ -105,6 +106,46 @@ export const EventBuilderPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [mobileTab, setMobileTab] = useState<'edit' | 'preview'>('edit');
   const [isQrOpen, setIsQrOpen] = useState<boolean>(false);
+  const [customThemes, setCustomThemes] = useState<CustomThemeConfig[]>([]);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
+  const [editingTheme, setEditingTheme] = useState<CustomThemeConfig | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('campuslink_custom_themes');
+      if (stored) {
+        setCustomThemes(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Failed to load custom themes in builder', e);
+    }
+  }, []);
+
+  const handleSaveCustomTheme = (themeConfig: CustomThemeConfig) => {
+    let updated: CustomThemeConfig[];
+    const exists = customThemes.some(t => t.id === themeConfig.id);
+    if (exists) {
+      updated = customThemes.map(t => t.id === themeConfig.id ? themeConfig : t);
+    } else {
+      updated = [...customThemes, themeConfig];
+    }
+    setCustomThemes(updated);
+    try {
+      localStorage.setItem('campuslink_custom_themes', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Failed to save custom themes in builder', e);
+    }
+
+    setDraft(prev => ({
+      ...prev,
+      themeId: themeConfig.id,
+      customThemeConfig: themeConfig,
+      customAccentColor: themeConfig.accentColor,
+      bgSvgPattern: ''
+    }));
+    setIsThemeModalOpen(false);
+    setEditingTheme(null);
+  };
 
   // BroadcastChannel for instant 0ms cross-tab real-time preview updates
   useEffect(() => {
@@ -683,27 +724,87 @@ export const EventBuilderPage: React.FC = () => {
 
                 {/* Theme Selector */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
-                    <Palette className="w-4 h-4 text-purple-400" /> Select Art-Directed Theme
-                  </label>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                      <Palette className="w-4 h-4 text-purple-400" /> Select Theme Template
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTheme(null);
+                        setIsThemeModalOpen(true);
+                      }}
+                      className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Create Custom Theme
+                    </button>
+                  </div>
+
+                  {customThemes.length > 0 && (
+                    <div className="mb-4 space-y-2">
+                      <span className="text-[11px] font-mono text-zinc-400 block">Your Custom Templates:</span>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {customThemes.map(ct => {
+                          const isSelected = draft.themeId === ct.id;
+                          return (
+                            <div
+                              key={ct.id}
+                              onClick={() => {
+                                updateField('themeId', ct.id);
+                                updateField('customThemeConfig', ct);
+                                updateField('customAccentColor', ct.accentColor);
+                                updateField('bgSvgPattern', '');
+                              }}
+                              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative group overflow-hidden ${
+                                isSelected ? 'ring-2 ring-white scale-105 shadow-xl border-white/40' : 'opacity-80 hover:opacity-100 border-white/10'
+                              }`}
+                              style={{
+                                background: ct.bgGradientEnd ? `linear-gradient(135deg, ${ct.bgColor} 0%, ${ct.bgGradientEnd} 100%)` : ct.bgColor,
+                                color: ct.textColor
+                              }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold truncate block pr-2">{ct.name}</span>
+                                <span className="text-[9px] uppercase px-1 py-0.5 rounded bg-black/40 border border-white/20">
+                                  {ct.cardStyle}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 mt-2">
+                                <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: ct.bgColor }} />
+                                <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: ct.cardBgColor }} />
+                                <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: ct.accentColor }} />
+                                <span className="text-[10px] opacity-75 font-mono ml-1">{ct.fontFamily}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <span className="text-[11px] font-mono text-zinc-400 block mb-2">Curated Presets:</span>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {THEMES_CONFIG.map(t => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => {
-                          updateField('themeId', t.id);
-                          updateField('customAccentColor', t.defaultAccent);
-                          updateField('bgSvgPattern', '');
-                        }}
-                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${t.bgClass} ${
-                          draft.themeId === t.id ? 'ring-2 ring-white scale-105 shadow-xl' : 'opacity-80 hover:opacity-100'
-                        }`}
-                      >
-                        <span className="text-xs font-bold block">{t.name}</span>
-                        <span className="text-[10px] opacity-75">{t.desc}</span>
-                      </button>
-                    ))}
+                    {THEMES_CONFIG.map(t => {
+                      const isSelected = !draft.customThemeConfig && draft.themeId === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => {
+                            updateField('themeId', t.id);
+                            updateField('customThemeConfig', undefined);
+                            updateField('customAccentColor', t.defaultAccent);
+                            updateField('bgSvgPattern', '');
+                          }}
+                          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${t.bgClass} ${
+                            isSelected ? 'ring-2 ring-white scale-105 shadow-xl' : 'opacity-80 hover:opacity-100'
+                          }`}
+                        >
+                          <span className="text-xs font-bold block">{t.name}</span>
+                          <span className="text-[10px] opacity-75">{t.desc}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -793,6 +894,17 @@ export const EventBuilderPage: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Custom Theme Creation/Editing Modal */}
+      <CustomThemeModal
+        isOpen={isThemeModalOpen}
+        initialTheme={editingTheme || undefined}
+        onClose={() => {
+          setIsThemeModalOpen(false);
+          setEditingTheme(null);
+        }}
+        onSave={handleSaveCustomTheme}
+      />
     </div>
   );
 };

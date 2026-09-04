@@ -1,4 +1,31 @@
-export type ThemeId = 'midnight' | 'aurora' | 'cyber' | 'editorial' | 'festive' | 'minimal' | 'popbrutalist' | 'crimson' | 'scarlet';
+export type ThemeId = 
+  | 'midnight' 
+  | 'aurora' 
+  | 'cyber' 
+  | 'editorial' 
+  | 'festive' 
+  | 'minimal' 
+  | 'popbrutalist' 
+  | 'crimson' 
+  | 'scarlet'
+  | 'custom'
+  | string;
+
+export interface CustomThemeConfig {
+  id: string;
+  name: string;
+  mode: 'dark' | 'light';
+  bgColor: string;
+  bgGradientEnd?: string;
+  cardBgColor: string;
+  cardBorderColor: string;
+  accentColor: string;
+  textColor?: string;
+  subtextColor?: string;
+  fontFamily: 'sans' | 'display' | 'serif' | 'mono';
+  cardStyle: 'glass' | 'flat' | 'bordered' | 'brutalist';
+  borderRadius: 'rounded-xl' | 'rounded-2xl' | 'rounded-3xl';
+}
 
 export type LinkType = 
   | 'registration'
@@ -89,6 +116,7 @@ export interface Event {
   themeId: ThemeId;
   customAccentColor?: string;
   bgSvgPattern?: string;
+  customThemeConfig?: CustomThemeConfig;
   status: 'published' | 'draft' | 'archived';
   committeeName?: string;
   committeeHandle?: string;

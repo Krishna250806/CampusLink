@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCampusLink } from '../../context/CampusLinkContext';
-import type { ThemeId } from '../../types/campuslink';
-import { Palette, Check, Sparkles, RotateCcw } from 'lucide-react';
+import type { ThemeId, CustomThemeConfig } from '../../types/campuslink';
+import { Palette, Check, Sparkles, RotateCcw, Plus, Edit2, Trash2 } from 'lucide-react';
 import { PhoneMockup } from '../../components/phone/PhoneMockup';
 import { PublicEventPage } from '../PublicEventPage';
+import { CustomThemeModal } from '../../components/common/CustomThemeModal';
 
 const THEMES: { id: ThemeId; name: string; tag: string; bgStyle: string; defaultAccent: string }[] = [
   { id: 'midnight', name: 'Midnight', tag: 'Monochromatic Obsidian Glass', bgStyle: 'bg-[#09090b] border-white/20 text-white', defaultAccent: '#fafafa' },
@@ -19,6 +20,68 @@ const THEMES: { id: ThemeId; name: string; tag: string; bgStyle: string; default
 
 export const AppearanceTab: React.FC = () => {
   const { activeEvent, activeCommittee, updateEvent } = useCampusLink();
+  const [customThemes, setCustomThemes] = useState<CustomThemeConfig[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTheme, setEditingTheme] = useState<CustomThemeConfig | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('campuslink_custom_themes');
+      if (stored) {
+        setCustomThemes(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Failed to load custom themes from storage', e);
+    }
+  }, []);
+
+  const saveCustomTheme = (themeConfig: CustomThemeConfig) => {
+    let updated: CustomThemeConfig[];
+    const exists = customThemes.some(t => t.id === themeConfig.id);
+    if (exists) {
+      updated = customThemes.map(t => t.id === themeConfig.id ? themeConfig : t);
+    } else {
+      updated = [...customThemes, themeConfig];
+    }
+
+    setCustomThemes(updated);
+    try {
+      localStorage.setItem('campuslink_custom_themes', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Failed to save custom themes to storage', e);
+    }
+
+    // Automatically apply to active event
+    if (activeEvent) {
+      updateEvent(activeEvent.id, {
+        themeId: themeConfig.id,
+        customThemeConfig: themeConfig,
+        customAccentColor: themeConfig.accentColor,
+        bgSvgPattern: ''
+      });
+    }
+    setIsModalOpen(false);
+    setEditingTheme(null);
+  };
+
+  const deleteCustomTheme = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = customThemes.filter(t => t.id !== id);
+    setCustomThemes(updated);
+    try {
+      localStorage.setItem('campuslink_custom_themes', JSON.stringify(updated));
+    } catch (err) {
+      console.error('Failed to remove custom theme from storage', err);
+    }
+
+    if (activeEvent?.themeId === id) {
+      updateEvent(activeEvent.id, {
+        themeId: 'midnight',
+        customThemeConfig: undefined,
+        customAccentColor: '#fafafa'
+      });
+    }
+  };
 
   if (!activeEvent) {
     return (
@@ -30,34 +93,133 @@ export const AppearanceTab: React.FC = () => {
   }
 
   const currentThemePreset = THEMES.find(t => t.id === activeEvent.themeId) || THEMES[0];
+  const isCustomActive = activeEvent.themeId === 'custom' || activeEvent.themeId?.startsWith('custom_') || !!activeEvent.customThemeConfig;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* Left: Settings Form */}
-      <div className="lg:col-span-7 space-y-6">
-        <div>
-          <h2 className="text-xl font-bold font-heading text-slate-100 flex items-center gap-2">
-            <span>Theme System & Styling</span>
-            <Sparkles className="w-5 h-5 text-amber-400" />
-          </h2>
-          <p className="text-xs text-slate-400">
-            Select a curated theme preset. Each theme is tailored with high-contrast typography and harmonious palettes.
-          </p>
+      <div className="lg:col-span-7 space-y-7">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold font-heading text-slate-100 flex items-center gap-2">
+              <span>Theme Studio</span>
+              <Sparkles className="w-5 h-5 text-amber-400" />
+            </h2>
+            <p className="text-xs text-slate-400">
+              Choose from 9 handcrafted presets or design your own custom theme template.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setEditingTheme(null);
+              setIsModalOpen(true);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-white text-black text-xs font-bold font-sans flex items-center gap-1.5 shadow-lg hover:bg-neutral-200 transition-transform active:scale-95 flex-shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Theme</span>
+          </button>
         </div>
 
-        {/* Themes Grid */}
+        {/* Custom Themes Section (if any created) */}
+        {customThemes.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <span>Your Custom Theme Templates</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 text-[10px] font-mono">
+                  {customThemes.length}
+                </span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {customThemes.map(ct => {
+                const isSelected = activeEvent.themeId === ct.id;
+                return (
+                  <div
+                    key={ct.id}
+                    onClick={() => updateEvent(activeEvent.id, {
+                      themeId: ct.id,
+                      customThemeConfig: ct,
+                      customAccentColor: ct.accentColor,
+                      bgSvgPattern: ''
+                    })}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-3 relative group overflow-hidden ${
+                      isSelected
+                        ? 'ring-2 ring-white shadow-xl scale-[1.02] border-white/40'
+                        : 'border-white/10 opacity-90 hover:opacity-100 hover:scale-[1.01] bg-neutral-900/80'
+                    }`}
+                    style={{
+                      background: ct.bgGradientEnd ? `linear-gradient(135deg, ${ct.bgColor} 0%, ${ct.bgGradientEnd} 100%)` : ct.bgColor,
+                      color: ct.textColor
+                    }}
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-bold truncate">{ct.name}</h4>
+                        <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/30 border border-white/15">
+                          {ct.cardStyle}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <span className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-sm" style={{ backgroundColor: ct.bgColor }} title="Background" />
+                        <span className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-sm" style={{ backgroundColor: ct.cardBgColor }} title="Card surface" />
+                        <span className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-sm" style={{ backgroundColor: ct.accentColor }} title="Accent" />
+                        <span className="text-[10px] opacity-75 font-mono ml-1">{ct.fontFamily}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {isSelected && <Check className="w-5 h-5 text-current flex-shrink-0" />}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingTheme(ct);
+                          setIsModalOpen(true);
+                        }}
+                        className="p-1.5 rounded-lg bg-black/40 hover:bg-black/60 text-white/90 transition-colors"
+                        title="Edit theme template"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => deleteCustomTheme(ct.id, e)}
+                        className="p-1.5 rounded-lg bg-red-500/30 hover:bg-red-500/60 text-red-200 transition-colors"
+                        title="Delete theme template"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Predefined Themes Grid */}
         <div className="space-y-3">
-          <label className="block text-xs font-semibold text-slate-300">
-            Theme Presets ({THEMES.length} Available)
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold text-slate-300">
+              Curated Theme Presets ({THEMES.length} Available)
+            </label>
+            <span className="text-[11px] text-zinc-500 font-mono">Designed for contrast</span>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {THEMES.map(theme => {
-              const isSelected = activeEvent.themeId === theme.id;
+              const isSelected = !isCustomActive && activeEvent.themeId === theme.id;
               return (
                 <div
                   key={theme.id}
                   onClick={() => updateEvent(activeEvent.id, {
                     themeId: theme.id,
+                    customThemeConfig: undefined,
                     customAccentColor: theme.defaultAccent,
                     bgSvgPattern: ''
                   })}
@@ -78,7 +240,7 @@ export const AppearanceTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Custom Accent Color Picker */}
+        {/* Custom Accent Color Fine-Tuning */}
         <div className="p-6 bg-neutral-900 border border-white/10 rounded-3xl space-y-4 shadow-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -93,9 +255,14 @@ export const AppearanceTab: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => updateEvent(activeEvent.id, { customAccentColor: currentThemePreset.defaultAccent })}
+              onClick={() => {
+                const defAccent = isCustomActive && activeEvent.customThemeConfig
+                  ? activeEvent.customThemeConfig.accentColor
+                  : currentThemePreset.defaultAccent;
+                updateEvent(activeEvent.id, { customAccentColor: defAccent });
+              }}
               className="inline-flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-white px-2.5 py-1 rounded-lg bg-neutral-950 border border-white/10 transition-colors"
-              title="Reset to theme preset default"
+              title="Reset to theme default"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset</span>
@@ -105,7 +272,7 @@ export const AppearanceTab: React.FC = () => {
           <div className="flex items-center gap-4 pt-2">
             <input
               type="color"
-              value={activeEvent.customAccentColor || currentThemePreset.defaultAccent}
+              value={activeEvent.customAccentColor || (isCustomActive && activeEvent.customThemeConfig ? activeEvent.customThemeConfig.accentColor : currentThemePreset.defaultAccent)}
               onChange={e => updateEvent(activeEvent.id, { customAccentColor: e.target.value })}
               className="w-14 h-12 rounded-2xl bg-neutral-950 border border-white/10 cursor-pointer"
             />
@@ -113,7 +280,7 @@ export const AppearanceTab: React.FC = () => {
               <span className="text-xs font-mono text-slate-400">Selected Color Code</span>
               <input
                 type="text"
-                value={activeEvent.customAccentColor || currentThemePreset.defaultAccent}
+                value={activeEvent.customAccentColor || (isCustomActive && activeEvent.customThemeConfig ? activeEvent.customThemeConfig.accentColor : currentThemePreset.defaultAccent)}
                 onChange={e => updateEvent(activeEvent.id, { customAccentColor: e.target.value })}
                 className="w-full px-3 py-2 bg-neutral-950 border border-white/10 rounded-xl text-xs font-mono text-slate-200"
               />
@@ -123,12 +290,24 @@ export const AppearanceTab: React.FC = () => {
       </div>
 
       {/* Right: Live Preview */}
-      <div className="lg:col-span-5 flex flex-col items-center justify-center p-4 bg-neutral-950 border border-white/10 rounded-3xl shadow-2xl">
+      <div className="lg:col-span-5 flex flex-col items-center justify-center p-4 bg-neutral-950 border border-white/10 rounded-3xl shadow-2xl sticky top-6">
         <span className="text-[10px] font-mono text-zinc-400 font-bold uppercase mb-3">INSTANT THEME PREVIEW</span>
         <PhoneMockup urlHandle={`@${activeCommittee.handle}/${activeEvent.slug}`}>
           <PublicEventPage isPreview={true} customEvent={activeEvent} />
         </PhoneMockup>
       </div>
+
+      {/* Custom Theme Creation/Editing Modal */}
+      <CustomThemeModal
+        isOpen={isModalOpen}
+        initialTheme={editingTheme || undefined}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingTheme(null);
+        }}
+        onSave={saveCustomTheme}
+      />
     </div>
   );
 };
+

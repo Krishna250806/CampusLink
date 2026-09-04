@@ -263,13 +263,18 @@ export const EventBuilderPage: React.FC = () => {
   const updateField = (key: keyof Event, val: any) => {
     setDraft(prev => {
       const updated = { ...prev, [key]: val };
+      // Only auto-generate slug for a brand NEW event draft that does not have a slug yet!
+      // Once created or if editing, the URL slug is locked unless explicitly edited by organizer.
       if (key === 'title') {
-        const generatedSlug = (val || '')
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '');
-        if (generatedSlug) {
-          updated.slug = generatedSlug;
+        const isFreshNewDraft = !isEditing && !prev.id && (!prev.slug || prev.slug === 'my-event' || prev.slug === '');
+        if (isFreshNewDraft) {
+          const generatedSlug = (val || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '');
+          if (generatedSlug) {
+            updated.slug = generatedSlug;
+          }
         }
       }
       return updated;
@@ -525,6 +530,31 @@ export const EventBuilderPage: React.FC = () => {
                       placeholder="e.g. TECHNOVA '26"
                       className="w-full px-4 py-3 bg-neutral-950 border border-white/10 rounded-xl text-sm text-slate-100 focus:outline-none focus:border-zinc-400"
                     />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-slate-300">Public Link Slug (URL)</label>
+                      <span className="text-[10px] text-zinc-400 font-mono">Permanent share link</span>
+                    </div>
+                    <div className="flex items-center bg-neutral-950 border border-white/10 rounded-xl overflow-hidden px-3.5 py-2.5 focus-within:border-zinc-400">
+                      <span className="text-xs text-zinc-500 font-mono select-none">
+                        /@{safeCommittee.handle || 'org'}/
+                      </span>
+                      <input
+                        type="text"
+                        value={draft.slug || ''}
+                        onChange={e => {
+                          const cleanSlug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                          updateField('slug', cleanSlug);
+                        }}
+                        placeholder="event-slug"
+                        className="flex-1 bg-transparent border-none text-xs font-mono text-cyan-300 focus:outline-none pl-1"
+                      />
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-1">
+                      🔒 Kept permanent when you edit the event title, ensuring your printed QR codes and shared links never break.
+                    </p>
                   </div>
 
                   <div>

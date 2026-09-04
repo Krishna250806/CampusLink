@@ -255,29 +255,30 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let result: Committee[] = [];
     if (typeof window !== 'undefined') {
       try {
-        const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
-        if (globalSaved) {
-          const parsed = JSON.parse(globalSaved);
-          if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
+        let currentUserId: string | undefined;
+        const savedUserStr = localStorage.getItem(STORAGE_KEY_USER);
+        if (savedUserStr && savedUserStr !== 'null') {
+          try {
+            const u = JSON.parse(savedUserStr);
+            currentUserId = u?.id;
+          } catch {}
         }
-        const map = new Map<string, Committee>();
-        result.forEach(c => map.set(c.id, c));
-
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && (k.startsWith('campuslink_v6_comm_') || k.startsWith('campuslink_clean_v6_comm'))) {
-            try {
-              const val = localStorage.getItem(k);
-              if (val) {
-                const parsedVal: Committee[] = JSON.parse(val);
-                if (Array.isArray(parsedVal)) {
-                  parsedVal.forEach(c => map.set(c.id, c));
-                }
-              }
-            } catch {}
+        if (currentUserId) {
+          const userSaved = localStorage.getItem(getUserCommitteesKey(currentUserId));
+          if (userSaved) {
+            const parsed = JSON.parse(userSaved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              result = parsed;
+            }
           }
         }
-        result = Array.from(map.values());
+        if (result.length === 0) {
+          const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
+          if (globalSaved) {
+            const parsed = JSON.parse(globalSaved);
+            if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
+          }
+        }
       } catch {}
     }
     return result.length > 0 ? result : [DEFAULT_FALLBACK_COMMITTEE];
@@ -329,6 +330,20 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Sync workspace datasets when user changes without dropping global events
   useEffect(() => {
     if (user?.id) {
+      const commKey = getUserCommitteesKey(user.id);
+      const savedComm = localStorage.getItem(commKey);
+      if (savedComm) {
+        try {
+          const userParsed: Committee[] = JSON.parse(savedComm);
+          if (Array.isArray(userParsed) && userParsed.length > 0) {
+            setCommittees(prev => {
+              const clean = prev.filter(c => c.userId !== user.id && !userParsed.some(up => up.id === c.id));
+              return [...userParsed, ...clean];
+            });
+          }
+        } catch {}
+      }
+
       const evtKey = getUserEventsKey(user.id);
       const savedEvt = localStorage.getItem(evtKey);
       if (savedEvt) {
@@ -365,34 +380,84 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // 1. Fetch user's committee from Supabase
     try {
-      const { data: commData } = await supabase
+      const { data: commsData } = await supabase
         .from('committees')
         .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+        .eq('user_id', userId);
+
+      let commData = commsData && commsData.length > 0 ? commsData[0] : null;
+
+      // Check if user already had a custom committee saved in local cache
+      let existingLocalComm: Committee | null = null;
+      try {
+        const saved = localStorage.getItem(getUserCommitteesKey(userId));
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            existingLocalComm = parsed.find((c: Committee) => c.userId === userId || c.id === userCommId) || parsed[0];
+          }
+        }
+      } catch {}
 
       if (commData) {
+        // If local has more recent non-default name/logo while Supabase is default, prefer local and sync to Supabase
+        const isDbDefault = commData.name && commData.name.includes("'s Organization") && !commData.logo_url;
+        const isLocalCustom = existingLocalComm && existingLocalComm.name && !existingLocalComm.name.includes("'s Organization");
+
+        const effectiveCommData = (isDbDefault && isLocalCustom && existingLocalComm) ? {
+          ...commData,
+          name: existingLocalComm.name,
+          handle: existingLocalComm.handle || commData.handle,
+          tagline: existingLocalComm.tagline || commData.tagline,
+          logo_url: existingLocalComm.logoUrl || commData.logo_url,
+          cover_url: existingLocalComm.coverUrl || commData.cover_url,
+          description: existingLocalComm.description || commData.description,
+          socials: existingLocalComm.socials || commData.socials
+        } : commData;
+
         const userComm: Committee = {
-          id: commData.id,
-          userId: commData.user_id,
-          handle: commData.handle || (userEmail.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() || 'my-org'),
-          name: commData.name || (userName ? `${userName}'s Organization` : 'My Organization'),
-          tagline: commData.tagline || '',
-          logoUrl: commData.logo_url || '',
-          coverUrl: commData.cover_url || '',
-          description: commData.description || '',
-          socials: commData.socials || { website: '' },
-          members: Array.isArray(commData.members) ? commData.members : [],
-          verified: Boolean(commData.verified)
+          id: effectiveCommData.id,
+          userId: effectiveCommData.user_id,
+          handle: effectiveCommData.handle || (userEmail.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() || 'my-org'),
+          name: effectiveCommData.name || (userName ? `${userName}'s Organization` : 'My Organization'),
+          tagline: effectiveCommData.tagline || '',
+          logoUrl: effectiveCommData.logo_url || '',
+          coverUrl: effectiveCommData.cover_url || '',
+          description: effectiveCommData.description || '',
+          socials: (effectiveCommData.socials && typeof effectiveCommData.socials === 'object') ? effectiveCommData.socials : { website: '' },
+          members: Array.isArray(effectiveCommData.members) ? effectiveCommData.members : [],
+          verified: Boolean(effectiveCommData.verified)
         };
+
+        if (isDbDefault && isLocalCustom) {
+          // Push updated local data to Supabase
+          supabase.from('committees').upsert({
+            id: userComm.id,
+            user_id: userComm.userId,
+            name: userComm.name,
+            handle: userComm.handle,
+            tagline: userComm.tagline,
+            logo_url: userComm.logoUrl,
+            cover_url: userComm.coverUrl,
+            description: userComm.description,
+            socials: userComm.socials
+          }).then(() => {});
+        }
+
+        setUser(prev => prev ? { ...prev, committeeId: userComm.id } : prev);
+        safeLocalStorageSet(getUserCommitteesKey(userId), JSON.stringify([userComm]));
         setCommittees(prev => {
           const clean = prev.filter(c => c.userId !== userId && c.id !== userComm.id);
           return [userComm, ...clean];
         });
       } else {
-        // Create fresh committee in Supabase for this new user
+        // Create fresh committee: check if user had saved one locally first!
         const cleanHandle = (userEmail.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() || `org-${userId.slice(0, 5)}`);
-        const newComm: Committee = {
+        const newComm: Committee = existingLocalComm ? {
+          ...existingLocalComm,
+          id: existingLocalComm.id || userCommId,
+          userId: userId
+        } : {
           id: userCommId,
           userId: userId,
           handle: cleanHandle,
@@ -405,6 +470,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           members: [],
           verified: false
         };
+
         await supabase.from('committees').upsert({
           id: newComm.id,
           user_id: newComm.userId,
@@ -415,6 +481,8 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           description: newComm.description,
           socials: newComm.socials
         });
+
+        safeLocalStorageSet(getUserCommitteesKey(userId), JSON.stringify([newComm]));
         setCommittees(prev => {
           const clean = prev.filter(c => c.userId !== userId && c.id !== newComm.id);
           return [newComm, ...clean];
@@ -486,8 +554,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         syncUserDataFromSupabase(session.user);
-      } else {
+      } else if (_event === 'SIGNED_OUT') {
         setUser(null);
+        setActiveEventIdState('');
       }
     });
 
@@ -590,7 +659,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   } : DEFAULT_FALLBACK_COMMITTEE;
 
   const activeCommittee = (user && userCommittees.length > 0)
-    ? (userCommittees.find(c => c.id === user.committeeId) || userCommittees[0])
+    ? (userCommittees.find(c => c.id === user.committeeId || c.userId === user.id) || userCommittees[0])
     : defaultUserCommittee;
 
   const userEvents = user
@@ -968,13 +1037,27 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }, ...prev];
       const updated = list.map(e => {
         if (e.id === eventId) {
+          const existingAliases: string[] = Array.isArray(e.slugAliases) 
+            ? e.slugAliases 
+            : (Array.isArray(e.organizerContact?.slugAliases) ? e.organizerContact.slugAliases : []);
+          const newAliases = [...existingAliases];
+          if (e.slug && partial.slug && partial.slug !== e.slug && !newAliases.includes(e.slug)) {
+            newAliases.push(e.slug);
+          }
+
           const merged: Event = {
             ...e,
             ...partial,
+            slugAliases: newAliases,
             userId: e.userId || user?.id || activeCommittee.userId || 'comm_main',
             committeeId: (activeCommittee.id && activeCommittee.id !== 'comm_main') ? activeCommittee.id : (e.committeeId || user?.committeeId || 'comm_main'),
             announcements: Array.isArray(partial.announcements) ? partial.announcements : (e.announcements || []),
             links: Array.isArray(partial.links) ? partial.links : (e.links || []),
+            organizerContact: {
+              ...(e.organizerContact || {}),
+              ...(partial.organizerContact || {}),
+              slugAliases: newAliases
+            },
             updatedAt: new Date().toISOString()
           };
           updatedTargetEvent = merged;
@@ -1018,6 +1101,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           bg_svg_pattern: customConfig ? `CTC:${JSON.stringify(customConfig)}` : (updatedTargetEvent.bgSvgPattern || ''),
           organizer_contact: {
             ...(updatedTargetEvent.organizerContact || {}),
+            slugAliases: updatedTargetEvent.slugAliases || [],
             committeeName: activeCommittee.name,
             committeeHandle: activeCommittee.handle,
             committeeLogoUrl: activeCommittee.logoUrl,
@@ -1242,24 +1326,30 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Committee Methods
   const updateCommittee = (committeeId: string, partial: Partial<Committee>) => {
-    const targetId = committeeId || user?.committeeId || activeCommittee.id || 'comm_main';
+    const targetId = committeeId || user?.committeeId || activeCommittee.id || (user ? `comm_${user.id}` : 'comm_main');
     const existing = committees.find(c => c.id === targetId || (user?.id && c.userId === user.id)) || activeCommittee;
+
+    const commUserId = user?.id || existing?.userId || 'usr_guest';
+    const commId = existing?.id && existing.id !== 'comm_main' 
+      ? existing.id 
+      : (user?.committeeId && user.committeeId !== 'comm_main' ? user.committeeId : (user ? `comm_${user.id}` : targetId));
 
     const updatedTargetComm: Committee = {
       ...existing,
       ...partial,
-      id: existing?.id || targetId,
-      userId: user?.id || existing?.userId || 'comm_main',
-      handle: (partial.handle !== undefined ? partial.handle : existing?.handle || 'my-org').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+      id: commId,
+      userId: commUserId,
+      handle: (partial.handle !== undefined ? partial.handle : existing?.handle || 'my-org').toLowerCase().replace(/[^a-z0-9_-]/g, ''),
+      socials: partial.socials ? { ...(existing?.socials || {}), ...partial.socials } : existing?.socials || {}
     };
 
     setCommittees(prev => {
-      const exists = prev.some(c => c.id === targetId || (user?.id && c.userId === user.id));
+      const exists = prev.some(c => c.id === commId || (commUserId !== 'usr_guest' && c.userId === commUserId));
       let updated: Committee[];
 
       if (exists) {
         updated = prev.map(c => {
-          if (c.id === targetId || (user?.id && c.userId === user.id)) {
+          if (c.id === commId || (commUserId !== 'usr_guest' && c.userId === commUserId)) {
             return updatedTargetComm;
           }
           return c;
@@ -1268,11 +1358,14 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updated = [updatedTargetComm, ...prev];
       }
 
-      safeLocalStorageSet(getUserCommitteesKey(user?.id), JSON.stringify(updated));
+      safeLocalStorageSet(getUserCommitteesKey(commUserId), JSON.stringify(updated));
       safeLocalStorageSet(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(updated));
       return updated;
     });
 
+    if (user && user.committeeId !== commId) {
+      setUser(prev => prev ? { ...prev, committeeId: commId } : prev);
+    }
 
     // If logo or name changed, also update all events belonging to this committee so they carry the logo
     if (partial.logoUrl || partial.name || partial.handle) {
@@ -1342,11 +1435,11 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     } catch {}
 
     // Synchronize directly with Supabase committees table
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && commUserId && commUserId !== 'usr_guest') {
       try {
         supabase.from('committees').upsert({
           id: updatedTargetComm.id,
-          user_id: user?.id || updatedTargetComm.userId || 'comm_main',
+          user_id: commUserId,
           name: updatedTargetComm.name,
           handle: updatedTargetComm.handle,
           tagline: updatedTargetComm.tagline || '',
@@ -1354,8 +1447,22 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           cover_url: updatedTargetComm.coverUrl || '',
           description: updatedTargetComm.description || '',
           socials: updatedTargetComm.socials || {}
-        }).then(({ error }) => {
-          if (error) console.warn('Supabase update committee info:', error.message || error);
+        }, { onConflict: 'id' }).then(({ error }) => {
+          if (error) {
+            console.warn('Supabase update committee info error, trying update by user_id:', error.message || error);
+            supabase.from('committees')
+              .update({
+                name: updatedTargetComm.name,
+                handle: updatedTargetComm.handle,
+                tagline: updatedTargetComm.tagline || '',
+                logo_url: updatedTargetComm.logoUrl || '',
+                cover_url: updatedTargetComm.coverUrl || '',
+                description: updatedTargetComm.description || '',
+                socials: updatedTargetComm.socials || {}
+              })
+              .eq('user_id', commUserId)
+              .then(() => {});
+          }
         });
 
         // Also update events in Supabase for this committee so the logo is immediately loaded
@@ -1368,7 +1475,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 committeeLogoUrl: updatedTargetComm.logoUrl
               }
             })
-            .or(`committee_id.eq.${updatedTargetComm.id},user_id.eq.${user?.id || updatedTargetComm.userId}`)
+            .or(`committee_id.eq.${updatedTargetComm.id},user_id.eq.${commUserId}`)
             .then(() => {});
         }
       } catch (err) {}

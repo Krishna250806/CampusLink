@@ -125,6 +125,16 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
               .maybeSingle();
 
             if (!data) {
+              const { data: aliasData } = await supabase
+                .from('events')
+                .select('*')
+                .contains('organizer_contact', { slugAliases: [lookup] })
+                .limit(1)
+                .maybeSingle();
+              if (aliasData) data = aliasData;
+            }
+
+            if (!data) {
               const { data: altData } = await supabase
                 .from('events')
                 .select('*')
@@ -299,14 +309,21 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     liveDraft && (
       (targetSlug === 'my-event' || !targetSlug) ||
       (liveDraft.slug && liveDraft.slug.toLowerCase() === targetSlug?.toLowerCase()) ||
-      (liveDraft.id && liveDraft.id === targetSlug)
+      (liveDraft.id && liveDraft.id === targetSlug) ||
+      (Array.isArray(liveDraft.slugAliases) && liveDraft.slugAliases.some(a => a.toLowerCase() === targetSlug)) ||
+      (Array.isArray(liveDraft.organizerContact?.slugAliases) && liveDraft.organizerContact.slugAliases.some(a => a.toLowerCase() === targetSlug))
     )
   );
 
   const localEvent = targetSlug
     ? (
         (isDraftMatch ? (liveDraft as unknown as Event) : undefined) ||
-        eventList.find(e => e.slug?.toLowerCase() === targetSlug || e.id === targetSlug) ||
+        eventList.find(e => 
+          e.slug?.toLowerCase() === targetSlug || 
+          e.id === targetSlug ||
+          (Array.isArray(e.slugAliases) && e.slugAliases.some(a => a.toLowerCase() === targetSlug)) ||
+          (Array.isArray(e.organizerContact?.slugAliases) && e.organizerContact.slugAliases.some(a => a.toLowerCase() === targetSlug))
+        ) ||
         (decodedEventFromUrl?.id ? eventList.find(e => e.id === decodedEventFromUrl.id) : undefined) ||
         (decodedEventFromUrl?.title ? eventList.find(e => e.title?.toLowerCase() === decodedEventFromUrl.title?.toLowerCase()) : undefined)
       )

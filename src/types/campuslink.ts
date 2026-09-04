@@ -80,6 +80,8 @@ export interface OrganizerContact {
   name: string;
   email: string;
   phone: string;
+  slugAliases?: string[];
+  [key: string]: any;
 }
 
 export interface ScheduleItem {
@@ -100,6 +102,7 @@ export interface Event {
   userId?: string;
   committeeId: string;
   slug: string; // e.g., 'technova-2026'
+  slugAliases?: string[];
   title: string; // e.g., "TECHNOVA '26"
   tagline: string; // e.g., "Build. Compete. Create."
   description: string;

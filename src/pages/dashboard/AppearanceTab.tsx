@@ -19,31 +19,38 @@ const THEMES: { id: ThemeId; name: string; tag: string; bgStyle: string; default
 ];
 
 export const AppearanceTab: React.FC = () => {
-  const { activeEvent, activeCommittee, updateEvent } = useCampusLink();
+  const { activeEvent, activeCommittee, updateEvent, user } = useCampusLink();
   const [customThemes, setCustomThemes] = useState<CustomThemeConfig[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTheme, setEditingTheme] = useState<CustomThemeConfig | null>(null);
 
+  const customThemesKey = `campuslink_custom_themes_${user?.id || 'guest'}`;
+
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('campuslink_custom_themes');
+      const stored = localStorage.getItem(customThemesKey);
+      let loaded: CustomThemeConfig[] = [];
       if (stored) {
-        const loaded: CustomThemeConfig[] = JSON.parse(stored);
-        setCustomThemes(loaded);
-        if (activeEvent && (activeEvent.themeId === 'custom' || activeEvent.themeId?.startsWith('custom_')) && !activeEvent.customThemeConfig) {
-          const match = loaded.find(t => t.id === activeEvent.themeId) || loaded[0];
-          if (match) {
-            updateEvent(activeEvent.id, {
-              customThemeConfig: match,
-              customAccentColor: match.accentColor
-            });
-          }
+        loaded = JSON.parse(stored);
+      }
+      if (activeEvent?.customThemeConfig && !loaded.some(t => t.id === activeEvent.customThemeConfig!.id)) {
+        loaded = [activeEvent.customThemeConfig, ...loaded];
+      }
+      setCustomThemes(loaded);
+
+      if (activeEvent && (activeEvent.themeId === 'custom' || activeEvent.themeId?.startsWith('custom_')) && !activeEvent.customThemeConfig) {
+        const match = loaded.find(t => t.id === activeEvent.themeId);
+        if (match) {
+          updateEvent(activeEvent.id, {
+            customThemeConfig: match,
+            customAccentColor: match.accentColor
+          });
         }
       }
     } catch (e) {
       console.error('Failed to load custom themes from storage', e);
     }
-  }, []);
+  }, [user?.id, activeEvent?.id, customThemesKey]);
 
   const saveCustomTheme = (themeConfig: CustomThemeConfig) => {
     let updated: CustomThemeConfig[];
@@ -56,7 +63,7 @@ export const AppearanceTab: React.FC = () => {
 
     setCustomThemes(updated);
     try {
-      localStorage.setItem('campuslink_custom_themes', JSON.stringify(updated));
+      localStorage.setItem(customThemesKey, JSON.stringify(updated));
     } catch (e) {
       console.error('Failed to save custom themes to storage', e);
     }
@@ -79,7 +86,7 @@ export const AppearanceTab: React.FC = () => {
     const updated = customThemes.filter(t => t.id !== id);
     setCustomThemes(updated);
     try {
-      localStorage.setItem('campuslink_custom_themes', JSON.stringify(updated));
+      localStorage.setItem(customThemesKey, JSON.stringify(updated));
     } catch (err) {
       console.error('Failed to remove custom theme from storage', err);
     }

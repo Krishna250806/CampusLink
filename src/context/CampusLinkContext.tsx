@@ -177,35 +177,18 @@ if (typeof window !== 'undefined') {
   } catch {}
 }
 
-// Saved Fallback Committee helper
-const getSavedFallbackCommittee = (): Committee => {
-  const base: Committee = {
-    id: 'comm_main',
-    handle: 'my-org',
-    name: 'My Student Committee',
-    tagline: 'Empower your campus events with CampusLink',
-    logoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:24px;border-radius:24px"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
-    description: 'Official student organization microsite.',
-    socials: {},
-    verified: true,
-    members: []
-  };
-  if (typeof window !== 'undefined') {
-    try {
-      const saved = localStorage.getItem('campuslink_fallback_committee_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') {
-          return { ...base, ...parsed };
-        }
-      }
-    } catch {}
-  }
-  return base;
+// Default Fallback Committee (immutable default template)
+export const DEFAULT_FALLBACK_COMMITTEE: Committee = {
+  id: 'comm_main',
+  handle: 'my-org',
+  name: 'My Student Committee',
+  tagline: 'Empower your campus events with CampusLink',
+  logoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="%236366f1" style="background:%2309090b;padding:24px;border-radius:24px"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
+  description: 'Official student organization microsite.',
+  socials: {},
+  verified: true,
+  members: []
 };
-
-// Default Fallback Committee
-export const DEFAULT_FALLBACK_COMMITTEE: Committee = getSavedFallbackCommittee();
 
 export const DEFAULT_FALLBACK_EVENT: Event = {
   id: 'evt_main',
@@ -364,31 +347,147 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [user?.id]);
 
+  // Synchronize authenticated user profile, committee, and events directly with Supabase
+  const syncUserDataFromSupabase = async (sessionUser: any) => {
+    if (!sessionUser) return;
+    const userId = sessionUser.id;
+    const userEmail = sessionUser.email || '';
+    const userName = sessionUser.user_metadata?.full_name || (userEmail ? userEmail.split('@')[0] : 'Organizer');
+    const userCommId = `comm_${userId}`;
+
+    const supabaseUser: User = {
+      id: userId,
+      name: userName,
+      email: userEmail,
+      committeeId: userCommId
+    };
+    setUser(supabaseUser);
+
+    // 1. Fetch user's committee from Supabase
+    try {
+      const { data: commData } = await supabase
+        .from('committees')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (commData) {
+        const userComm: Committee = {
+          id: commData.id,
+          userId: commData.user_id,
+          handle: commData.handle || (userEmail.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() || 'my-org'),
+          name: commData.name || (userName ? `${userName}'s Organization` : 'My Organization'),
+          tagline: commData.tagline || '',
+          logoUrl: commData.logo_url || '',
+          coverUrl: commData.cover_url || '',
+          description: commData.description || '',
+          socials: commData.socials || { website: '' },
+          members: Array.isArray(commData.members) ? commData.members : [],
+          verified: Boolean(commData.verified)
+        };
+        setCommittees(prev => {
+          const clean = prev.filter(c => c.userId !== userId && c.id !== userComm.id);
+          return [userComm, ...clean];
+        });
+      } else {
+        // Create fresh committee in Supabase for this new user
+        const cleanHandle = (userEmail.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() || `org-${userId.slice(0, 5)}`);
+        const newComm: Committee = {
+          id: userCommId,
+          userId: userId,
+          handle: cleanHandle,
+          name: userName ? `${userName}'s Organization` : 'My Organization',
+          tagline: 'Student organization page',
+          logoUrl: '',
+          coverUrl: '',
+          description: '',
+          socials: { website: '' },
+          members: [],
+          verified: false
+        };
+        await supabase.from('committees').upsert({
+          id: newComm.id,
+          user_id: newComm.userId,
+          name: newComm.name,
+          handle: newComm.handle,
+          tagline: newComm.tagline,
+          logo_url: newComm.logoUrl,
+          description: newComm.description,
+          socials: newComm.socials
+        });
+        setCommittees(prev => {
+          const clean = prev.filter(c => c.userId !== userId && c.id !== newComm.id);
+          return [newComm, ...clean];
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to sync committee from Supabase:', err);
+    }
+
+    // 2. Fetch user's events from Supabase
+    try {
+      const { data: eventsData } = await supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (eventsData && eventsData.length > 0) {
+        const userFetchedEvents: Event[] = eventsData.map(d => ({
+          id: d.id,
+          userId: d.user_id,
+          committeeId: d.committee_id,
+          slug: d.slug,
+          title: d.title,
+          tagline: d.tagline || '',
+          description: d.description || '',
+          posterUrl: d.poster_url || '',
+          startDate: d.start_date,
+          endDate: d.end_date,
+          venue: d.venue || '',
+          address: d.address || '',
+          mapsUrl: d.maps_url || '',
+          primaryCtaText: d.primary_cta_text || 'Register Now',
+          primaryCtaUrl: d.primary_cta_url || '',
+          organizerContact: d.organizer_contact || {},
+          themeId: d.theme_id || 'midnight',
+          customAccentColor: d.custom_accent_color || '#fafafa',
+          customThemeConfig: d.custom_theme_config || undefined,
+          status: d.status || 'published',
+          createdAt: d.created_at || new Date().toISOString(),
+          updatedAt: d.updated_at || new Date().toISOString(),
+          announcements: Array.isArray(d.announcements) ? d.announcements : [],
+          schedule: Array.isArray(d.schedule) ? d.schedule : [],
+          rulebook: Array.isArray(d.rulebook) ? d.rulebook : [],
+          links: Array.isArray(d.links) ? d.links : []
+        }));
+        setEvents(prev => {
+          const others = prev.filter(e => e.userId && e.userId !== userId);
+          return [...userFetchedEvents, ...others];
+        });
+        if (userFetchedEvents.length > 0) {
+          setActiveEventIdState(userFetchedEvents[0].id);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to sync events from Supabase:', err);
+    }
+  };
+
   // Sync Supabase Auth session if configured
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        const supabaseUser: User = {
-          id: session.user.id,
-          name: session.user.user_metadata?.full_name || (session.user.email ? session.user.email.split('@')[0] : 'Organizer'),
-          email: session.user.email || '',
-          committeeId: `comm_${session.user.id}`
-        };
-        setUser(supabaseUser);
+        syncUserDataFromSupabase(session.user);
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        const supabaseUser: User = {
-          id: session.user.id,
-          name: session.user.user_metadata?.full_name || (session.user.email ? session.user.email.split('@')[0] : 'Organizer'),
-          email: session.user.email || '',
-          committeeId: `comm_${session.user.id}`
-        };
-        setUser(supabaseUser);
+        syncUserDataFromSupabase(session.user);
+      } else {
+        setUser(null);
       }
     });
 
@@ -473,18 +572,30 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Derived User-Scoped Workspace Data (STRICT ACCOUNT ISOLATION)
   const userCommittees = user
-    ? (committees.filter(c => c.userId === user.id || c.id === user.committeeId).length > 0
-        ? committees.filter(c => c.userId === user.id || c.id === user.committeeId)
-        : committees)
-    : committees;
+    ? committees.filter(c => c.userId === user.id || c.id === user.committeeId)
+    : [];
 
-  const activeCommittee = userCommittees.find(c => c.id !== 'comm_main')
-    || userCommittees[0]
-    || DEFAULT_FALLBACK_COMMITTEE;
+  const defaultUserCommittee: Committee = user ? {
+    id: user.committeeId || `comm_${user.id}`,
+    userId: user.id,
+    handle: (user.email ? user.email.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() : 'my-org') || 'my-org',
+    name: user.name ? `${user.name}'s Organization` : 'My Organization',
+    tagline: 'Student organization page',
+    logoUrl: '',
+    coverUrl: '',
+    description: '',
+    socials: { website: '' },
+    members: [],
+    verified: false
+  } : DEFAULT_FALLBACK_COMMITTEE;
+
+  const activeCommittee = (user && userCommittees.length > 0)
+    ? (userCommittees.find(c => c.id === user.committeeId) || userCommittees[0])
+    : defaultUserCommittee;
 
   const userEvents = user
     ? events.filter(e => e.userId === user.id || (e.committeeId && e.committeeId === user.committeeId))
-    : events;
+    : [];
 
   const activeEvent = userEvents.find(e => e.id === activeEventId)
     || userEvents[0]
@@ -543,13 +654,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (error || !data?.user) {
         return { success: false, error: 'ACCOUNT_NOT_FOUND' };
       }
-      const supabaseUser: User = {
-        id: data.user.id,
-        name: data.user.user_metadata?.full_name || (data.user.email ? data.user.email.split('@')[0] : 'Organizer'),
-        email: data.user.email || '',
-        committeeId: `comm_${data.user.id}`
-      };
-      setUser(supabaseUser);
+      await syncUserDataFromSupabase(data.user);
       return { success: true };
     }
 
@@ -622,11 +727,14 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     toast.success('Signed in with Google!');
   };
 
-  const logout = () => {
+  const logout = async () => {
     if (isSupabaseConfigured()) {
-      signOutUser();
+      try {
+        await signOutUser();
+      } catch {}
     }
     setUser(null);
+    setActiveEventIdState('');
     toast.info('Logged out');
   };
 
@@ -696,18 +804,6 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setEvents([]); // New user starts with clean 0 events in their workspace
     setUser(newUser);
 
-    DEFAULT_FALLBACK_COMMITTEE.name = newCommittee.name;
-    DEFAULT_FALLBACK_COMMITTEE.handle = newCommittee.handle;
-    DEFAULT_FALLBACK_COMMITTEE.logoUrl = newCommittee.logoUrl;
-
-    safeLocalStorageSet('campuslink_fallback_committee_v1', JSON.stringify({
-      id: newCommId,
-      name: newCommittee.name,
-      logoUrl: newCommittee.logoUrl,
-      handle: newCommittee.handle,
-      tagline: newCommittee.tagline,
-      description: newCommittee.description
-    }));
 
     if (isSupabaseConfigured()) {
       try {
@@ -1177,30 +1273,6 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return updated;
     });
 
-    if (partial.logoUrl) {
-      DEFAULT_FALLBACK_COMMITTEE.logoUrl = partial.logoUrl;
-    }
-    if (partial.name) {
-      DEFAULT_FALLBACK_COMMITTEE.name = partial.name;
-    }
-    if (partial.handle) {
-      DEFAULT_FALLBACK_COMMITTEE.handle = updatedTargetComm.handle;
-    }
-    if (partial.tagline) {
-      DEFAULT_FALLBACK_COMMITTEE.tagline = partial.tagline;
-    }
-    if (partial.description) {
-      DEFAULT_FALLBACK_COMMITTEE.description = partial.description;
-    }
-
-    safeLocalStorageSet('campuslink_fallback_committee_v1', JSON.stringify({
-      id: updatedTargetComm.id,
-      name: DEFAULT_FALLBACK_COMMITTEE.name,
-      logoUrl: DEFAULT_FALLBACK_COMMITTEE.logoUrl,
-      handle: DEFAULT_FALLBACK_COMMITTEE.handle,
-      tagline: DEFAULT_FALLBACK_COMMITTEE.tagline,
-      description: DEFAULT_FALLBACK_COMMITTEE.description
-    }));
 
     // If logo or name changed, also update all events belonging to this committee so they carry the logo
     if (partial.logoUrl || partial.name || partial.handle) {

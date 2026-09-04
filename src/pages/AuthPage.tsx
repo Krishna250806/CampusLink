@@ -55,7 +55,6 @@ export const AuthPage: React.FC<{ mode?: 'login' | 'signup' }> = ({ mode = 'logi
 
   const handleGoogleAuth = async () => {
     await loginWithGoogle();
-    navigate('/dashboard');
   };
 
   return (

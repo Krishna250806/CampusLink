@@ -41,7 +41,9 @@ import { DEFAULT_FALLBACK_COMMITTEE, DEFAULT_FALLBACK_EVENT } from '../../contex
 export const EventBuilderPage: React.FC = () => {
   const { eventId } = useParams<{ eventId?: string }>();
   const navigate = useNavigate();
-  const { activeEvent, events, createEvent, updateEvent, activeCommittee } = useCampusLink();
+  const { activeEvent, events, createEvent, updateEvent, activeCommittee, user } = useCampusLink();
+
+  const customThemesKey = `campuslink_custom_themes_${user?.id || 'guest'}`;
 
   const safeCommittee = activeCommittee || DEFAULT_FALLBACK_COMMITTEE;
   const safeActiveEvent = activeEvent || DEFAULT_FALLBACK_EVENT;
@@ -98,10 +100,10 @@ export const EventBuilderPage: React.FC = () => {
           const tid = liveDraftSaved?.themeId || targetEvent?.themeId;
           if (tid && (tid === 'custom' || tid.startsWith('custom_'))) {
             try {
-              const stored = typeof window !== 'undefined' ? localStorage.getItem('campuslink_custom_themes') : null;
+              const stored = typeof window !== 'undefined' ? localStorage.getItem(customThemesKey) : null;
               if (stored) {
                 const list = JSON.parse(stored);
-                return list.find((t: any) => t.id === tid) || list[0];
+                return list.find((t: any) => t.id === tid);
               }
             } catch {}
           }
@@ -127,14 +129,19 @@ export const EventBuilderPage: React.FC = () => {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('campuslink_custom_themes');
+      const stored = localStorage.getItem(customThemesKey);
+      let list: CustomThemeConfig[] = [];
       if (stored) {
-        setCustomThemes(JSON.parse(stored));
+        list = JSON.parse(stored);
       }
+      if (draft?.customThemeConfig && !list.some(t => t.id === draft.customThemeConfig!.id)) {
+        list = [draft.customThemeConfig, ...list];
+      }
+      setCustomThemes(list);
     } catch (e) {
       console.error('Failed to load custom themes in builder', e);
     }
-  }, []);
+  }, [user?.id, customThemesKey]);
 
   const handleSaveCustomTheme = (themeConfig: CustomThemeConfig) => {
     let updated: CustomThemeConfig[];
@@ -146,7 +153,7 @@ export const EventBuilderPage: React.FC = () => {
     }
     setCustomThemes(updated);
     try {
-      localStorage.setItem('campuslink_custom_themes', JSON.stringify(updated));
+      localStorage.setItem(customThemesKey, JSON.stringify(updated));
     } catch (e) {
       console.error('Failed to save custom themes in builder', e);
     }

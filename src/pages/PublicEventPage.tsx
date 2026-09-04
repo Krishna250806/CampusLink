@@ -595,7 +595,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       const stored = typeof window !== 'undefined' ? localStorage.getItem('campuslink_custom_themes') : null;
       if (stored) {
         const themes = JSON.parse(stored);
-        customConfig = themes.find((t: any) => t.id === currentTheme) || themes[themes.length - 1];
+        customConfig = themes.find((t: any) => t.id === currentTheme);
       }
     } catch {}
 

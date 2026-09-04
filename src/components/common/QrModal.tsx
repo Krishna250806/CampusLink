@@ -60,7 +60,7 @@ export const QrModal: React.FC<QrModalProps> = ({
         const stored = localStorage.getItem('campuslink_custom_themes');
         if (stored) {
           const list = JSON.parse(stored);
-          const found = list.find((t: any) => t.id === event.themeId) || list[list.length - 1];
+          const found = Array.isArray(list) ? list.find((t: any) => t.id === event.themeId) : null;
           if (found) {
             event = { ...event, customThemeConfig: found };
           }

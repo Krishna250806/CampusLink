@@ -273,6 +273,20 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           }
         }
         if (result.length === 0) {
+          const guestSaved = localStorage.getItem(getUserCommitteesKey('usr_guest'));
+          if (guestSaved) {
+            const parsed = JSON.parse(guestSaved);
+            if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
+          }
+        }
+        if (result.length === 0) {
+          const defaultSaved = localStorage.getItem(getUserCommitteesKey('default'));
+          if (defaultSaved) {
+            const parsed = JSON.parse(defaultSaved);
+            if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
+          }
+        }
+        if (result.length === 0) {
           const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
           if (globalSaved) {
             const parsed = JSON.parse(globalSaved);
@@ -281,7 +295,11 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       } catch {}
     }
-    return result.length > 0 ? result : [DEFAULT_FALLBACK_COMMITTEE];
+    const mapped = result.map(c => ({
+      ...c,
+      coverUrl: c.coverUrl || c.socials?.coverUrl || ''
+    }));
+    return mapped.length > 0 ? mapped : [DEFAULT_FALLBACK_COMMITTEE];
   });
 
   // Master events dataset containing all published & created events
@@ -383,7 +401,8 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const { data: commsData } = await supabase
         .from('committees')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false });
 
       let commData = commsData && commsData.length > 0 ? commsData[0] : null;
 
@@ -395,6 +414,18 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
             existingLocalComm = parsed.find((c: Committee) => c.userId === userId || c.id === userCommId) || parsed[0];
+          }
+        }
+        if (!existingLocalComm) {
+          const guestSaved = localStorage.getItem(getUserCommitteesKey('usr_guest')) || localStorage.getItem(getUserCommitteesKey('default'));
+          if (guestSaved) {
+            const parsed = JSON.parse(guestSaved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const candidate = parsed[0];
+              if (candidate && candidate.name && candidate.name !== 'My Student Committee') {
+                existingLocalComm = candidate;
+              }
+            }
           }
         }
       } catch {}
@@ -410,10 +441,12 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           handle: existingLocalComm.handle || commData.handle,
           tagline: existingLocalComm.tagline || commData.tagline,
           logo_url: existingLocalComm.logoUrl || commData.logo_url,
-          cover_url: existingLocalComm.coverUrl || commData.cover_url,
+          cover_url: existingLocalComm.coverUrl || commData.socials?.coverUrl || commData.cover_url,
           description: existingLocalComm.description || commData.description,
           socials: existingLocalComm.socials || commData.socials
         } : commData;
+
+        const effectiveCoverUrl = effectiveCommData.coverUrl || effectiveCommData.socials?.coverUrl || effectiveCommData.cover_url || '';
 
         const userComm: Committee = {
           id: effectiveCommData.id,
@@ -422,9 +455,11 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           name: effectiveCommData.name || (userName ? `${userName}'s Organization` : 'My Organization'),
           tagline: effectiveCommData.tagline || '',
           logoUrl: effectiveCommData.logo_url || '',
-          coverUrl: effectiveCommData.cover_url || '',
+          coverUrl: effectiveCoverUrl,
           description: effectiveCommData.description || '',
-          socials: (effectiveCommData.socials && typeof effectiveCommData.socials === 'object') ? effectiveCommData.socials : { website: '' },
+          socials: (effectiveCommData.socials && typeof effectiveCommData.socials === 'object')
+            ? { ...effectiveCommData.socials, coverUrl: effectiveCoverUrl }
+            : { website: '', coverUrl: effectiveCoverUrl },
           members: Array.isArray(effectiveCommData.members) ? effectiveCommData.members : [],
           verified: Boolean(effectiveCommData.verified)
         };
@@ -438,10 +473,13 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             handle: userComm.handle,
             tagline: userComm.tagline,
             logo_url: userComm.logoUrl,
-            cover_url: userComm.coverUrl,
             description: userComm.description,
-            socials: userComm.socials
-          }).then(() => {});
+            socials: {
+              ...(userComm.socials || {}),
+              coverUrl: userComm.coverUrl || ''
+            },
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' }).then(() => {});
         }
 
         setUser(prev => prev ? { ...prev, committeeId: userComm.id } : prev);
@@ -466,7 +504,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           logoUrl: '',
           coverUrl: '',
           description: '',
-          socials: { website: '' },
+          socials: { website: '', coverUrl: '' },
           members: [],
           verified: false
         };
@@ -479,7 +517,11 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           tagline: newComm.tagline,
           logo_url: newComm.logoUrl,
           description: newComm.description,
-          socials: newComm.socials
+          socials: {
+            ...(newComm.socials || {}),
+            coverUrl: newComm.coverUrl || ''
+          },
+          updated_at: new Date().toISOString()
         });
 
         safeLocalStorageSet(getUserCommitteesKey(userId), JSON.stringify([newComm]));
@@ -574,7 +616,10 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     if (committees && committees.length > 0) {
-      safeLocalStorageSet(getUserCommitteesKey(user?.id), JSON.stringify(committees));
+      const toSave = user ? committees.filter(c => c.userId === user.id || c.id === user.committeeId) : committees;
+      if (toSave.length > 0) {
+        safeLocalStorageSet(getUserCommitteesKey(user?.id), JSON.stringify(toSave));
+      }
       try {
         const existingGlobal = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
         const map = new Map<string, Committee>();
@@ -642,25 +687,31 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Derived User-Scoped Workspace Data (STRICT ACCOUNT ISOLATION)
   const userCommittees = user
     ? committees.filter(c => c.userId === user.id || c.id === user.committeeId)
-    : [];
+    : committees.filter(c => c.id !== 'comm_main' || committees.length === 1);
+
+  const fallbackCommittee = committees.find(c => c.id !== 'comm_main') || committees[0] || DEFAULT_FALLBACK_COMMITTEE;
 
   const defaultUserCommittee: Committee = user ? {
-    id: user.committeeId || `comm_${user.id}`,
+    id: user.committeeId || fallbackCommittee.id || `comm_${user.id}`,
     userId: user.id,
-    handle: (user.email ? user.email.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() : 'my-org') || 'my-org',
-    name: user.name ? `${user.name}'s Organization` : 'My Organization',
-    tagline: 'Student organization page',
-    logoUrl: '',
-    coverUrl: '',
-    description: '',
-    socials: { website: '' },
-    members: [],
+    handle: (fallbackCommittee.handle && fallbackCommittee.handle !== 'my-org')
+      ? fallbackCommittee.handle
+      : ((user.email ? user.email.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() : 'my-org') || 'my-org'),
+    name: (fallbackCommittee.name && fallbackCommittee.name !== 'My Student Committee')
+      ? fallbackCommittee.name
+      : (user.name ? `${user.name}'s Organization` : 'My Organization'),
+    tagline: fallbackCommittee.tagline || 'Student organization page',
+    logoUrl: fallbackCommittee.logoUrl || '',
+    coverUrl: fallbackCommittee.coverUrl || fallbackCommittee.socials?.coverUrl || '',
+    description: fallbackCommittee.description || '',
+    socials: fallbackCommittee.socials || { website: '' },
+    members: fallbackCommittee.members || [],
     verified: false
-  } : DEFAULT_FALLBACK_COMMITTEE;
+  } : fallbackCommittee;
 
-  const activeCommittee = (user && userCommittees.length > 0)
-    ? (userCommittees.find(c => c.id === user.committeeId || c.userId === user.id) || userCommittees[0])
-    : defaultUserCommittee;
+  const activeCommittee = user
+    ? ((userCommittees.length > 0 ? (userCommittees.find(c => c.id === user.committeeId || c.userId === user.id) || userCommittees[0]) : null) || defaultUserCommittee)
+    : (userCommittees[0] || defaultUserCommittee);
 
   const userEvents = user
     ? events.filter(e => e.userId === user.id || (e.committeeId && e.committeeId === user.committeeId))
@@ -1334,13 +1385,22 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       ? existing.id 
       : (user?.committeeId && user.committeeId !== 'comm_main' ? user.committeeId : (user ? `comm_${user.id}` : targetId));
 
+    const finalCoverUrl = partial.coverUrl !== undefined
+      ? partial.coverUrl
+      : (partial.socials?.coverUrl || existing?.coverUrl || existing?.socials?.coverUrl || '');
+
     const updatedTargetComm: Committee = {
       ...existing,
       ...partial,
       id: commId,
       userId: commUserId,
       handle: (partial.handle !== undefined ? partial.handle : existing?.handle || 'my-org').toLowerCase().replace(/[^a-z0-9_-]/g, ''),
-      socials: partial.socials ? { ...(existing?.socials || {}), ...partial.socials } : existing?.socials || {}
+      coverUrl: finalCoverUrl,
+      socials: {
+        ...(existing?.socials || {}),
+        ...(partial.socials || {}),
+        coverUrl: finalCoverUrl
+      }
     };
 
     setCommittees(prev => {
@@ -1358,7 +1418,11 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updated = [updatedTargetComm, ...prev];
       }
 
-      safeLocalStorageSet(getUserCommitteesKey(commUserId), JSON.stringify(updated));
+      // User-scoped cache should ONLY store this user's committee!
+      safeLocalStorageSet(getUserCommitteesKey(commUserId), JSON.stringify([updatedTargetComm]));
+      if (commUserId === 'usr_guest' || !user) {
+        safeLocalStorageSet(getUserCommitteesKey('default'), JSON.stringify([updatedTargetComm]));
+      }
       safeLocalStorageSet(STORAGE_KEY_GLOBAL_COMMITTEES, JSON.stringify(updated));
       return updated;
     });
@@ -1437,33 +1501,42 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // Synchronize directly with Supabase committees table
     if (isSupabaseConfigured() && commUserId && commUserId !== 'usr_guest') {
       try {
-        supabase.from('committees').upsert({
-          id: updatedTargetComm.id,
-          user_id: commUserId,
+        const socialsPayload = {
+          ...(updatedTargetComm.socials || {}),
+          coverUrl: finalCoverUrl
+        };
+
+        const dbPayload = {
           name: updatedTargetComm.name,
           handle: updatedTargetComm.handle,
           tagline: updatedTargetComm.tagline || '',
           logo_url: updatedTargetComm.logoUrl || '',
-          cover_url: updatedTargetComm.coverUrl || '',
           description: updatedTargetComm.description || '',
-          socials: updatedTargetComm.socials || {}
-        }, { onConflict: 'id' }).then(({ error }) => {
-          if (error) {
-            console.warn('Supabase update committee info error, trying update by user_id:', error.message || error);
-            supabase.from('committees')
-              .update({
-                name: updatedTargetComm.name,
-                handle: updatedTargetComm.handle,
-                tagline: updatedTargetComm.tagline || '',
-                logo_url: updatedTargetComm.logoUrl || '',
-                cover_url: updatedTargetComm.coverUrl || '',
-                description: updatedTargetComm.description || '',
-                socials: updatedTargetComm.socials || {}
-              })
-              .eq('user_id', commUserId)
-              .then(() => {});
-          }
-        });
+          socials: socialsPayload,
+          updated_at: new Date().toISOString()
+        };
+
+        supabase.from('committees')
+          .select('id')
+          .eq('user_id', commUserId)
+          .limit(1)
+          .then(({ data: existingRows }) => {
+            if (existingRows && existingRows.length > 0) {
+              const targetDbId = existingRows[0].id;
+              supabase.from('committees')
+                .update(dbPayload)
+                .eq('id', targetDbId)
+                .then(() => {});
+            } else {
+              supabase.from('committees')
+                .upsert({
+                  id: updatedTargetComm.id,
+                  user_id: commUserId,
+                  ...dbPayload
+                }, { onConflict: 'id' })
+                .then(() => {});
+            }
+          });
 
         // Also update events in Supabase for this committee so the logo is immediately loaded
         if (partial.logoUrl) {

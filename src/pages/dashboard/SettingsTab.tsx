@@ -27,12 +27,23 @@ export const SettingsTab: React.FC = () => {
       setHandle(activeCommittee.handle || '');
       setTagline(activeCommittee.tagline || '');
       setLogoUrl(activeCommittee.logoUrl || '');
-      setCoverUrl(activeCommittee.coverUrl || '');
+      setCoverUrl(activeCommittee.coverUrl || activeCommittee.socials?.coverUrl || '');
       setDescription(activeCommittee.description || '');
       setInstagram(activeCommittee.socials?.instagram || '');
       setWebsite(activeCommittee.socials?.website || '');
     }
-  }, [activeCommittee.id, activeCommittee.name, activeCommittee.handle, activeCommittee.logoUrl]);
+  }, [
+    activeCommittee.id,
+    activeCommittee.name,
+    activeCommittee.handle,
+    activeCommittee.tagline,
+    activeCommittee.logoUrl,
+    activeCommittee.coverUrl,
+    activeCommittee.socials?.coverUrl,
+    activeCommittee.description,
+    activeCommittee.socials?.instagram,
+    activeCommittee.socials?.website
+  ]);
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -47,7 +58,10 @@ export const SettingsTab: React.FC = () => {
         const compressed = await compressImage(file, maxW, maxH);
         setter(compressed);
         // Immediately persist to committee state, Supabase and live draft
-        updateCommittee(activeCommittee.id, { [field]: compressed });
+        updateCommittee(activeCommittee.id, {
+          [field]: compressed,
+          ...(field === 'coverUrl' ? { socials: { ...activeCommittee.socials, coverUrl: compressed } } : {})
+        });
         toast.success(field === 'logoUrl' ? 'Logo uploaded & updated!' : 'Cover banner uploaded & updated!');
       } catch (err) {
         console.error('Image compression failed:', err);
@@ -56,7 +70,10 @@ export const SettingsTab: React.FC = () => {
           if (event.target?.result) {
             const dataUrl = event.target.result as string;
             setter(dataUrl);
-            updateCommittee(activeCommittee.id, { [field]: dataUrl });
+            updateCommittee(activeCommittee.id, {
+              [field]: dataUrl,
+              ...(field === 'coverUrl' ? { socials: { ...activeCommittee.socials, coverUrl: dataUrl } } : {})
+            });
             toast.success('Local image uploaded & saved!');
           }
         };
@@ -84,6 +101,7 @@ export const SettingsTab: React.FC = () => {
       description,
       socials: {
         ...activeCommittee.socials,
+        coverUrl,
         instagram,
         website
       }

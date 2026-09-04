@@ -205,7 +205,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
                   name: commData.name || rawContact.committeeName || 'Student Committee',
                   tagline: commData.tagline || '',
                   logoUrl: commData.logo_url || rawContact.committeeLogoUrl || '',
-                  coverUrl: commData.cover_url || '',
+                  coverUrl: commData.cover_url || commData.socials?.coverUrl || '',
                   description: commData.description || '',
                   socials: commData.socials || {},
                   members: [],

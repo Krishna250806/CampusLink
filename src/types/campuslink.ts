@@ -147,6 +147,8 @@ export interface Committee {
     twitter?: string;
     website?: string;
     youtube?: string;
+    coverUrl?: string;
+    [key: string]: any;
   };
   members: TeamMember[];
   verified?: boolean;

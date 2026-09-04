@@ -51,7 +51,7 @@ export const PublicCommitteePage: React.FC = () => {
             name: data.name || 'Student Committee',
             tagline: data.tagline || '',
             logoUrl: data.logo_url || '',
-            coverUrl: data.cover_url || '',
+            coverUrl: data.cover_url || data.socials?.coverUrl || '',
             description: data.description || '',
             socials: data.socials || {},
             members: [],

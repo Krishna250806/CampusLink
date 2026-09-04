@@ -93,6 +93,17 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
             }
 
             if (data && !error && isMounted) {
+              const rawContact = data.organizer_contact || {};
+              let loadedCustomTheme = data.custom_theme_config;
+              if (!loadedCustomTheme && rawContact.customThemeConfig) {
+                loadedCustomTheme = rawContact.customThemeConfig;
+              }
+              if (!loadedCustomTheme && typeof data.bg_svg_pattern === 'string' && data.bg_svg_pattern.startsWith('CTC:')) {
+                try {
+                  loadedCustomTheme = JSON.parse(data.bg_svg_pattern.slice(4));
+                } catch {}
+              }
+
               const fetched: Event = {
                 id: data.id,
                 userId: data.user_id,
@@ -109,11 +120,11 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
                 mapsUrl: data.maps_url || '',
                 primaryCtaText: data.primary_cta_text || 'Register Now',
                 primaryCtaUrl: data.primary_cta_url || '',
-                organizerContact: data.organizer_contact || {},
-                themeId: data.theme_id || 'popbrutalist',
-                customAccentColor: data.custom_accent_color || '#fafafa',
-                bgSvgPattern: data.bg_svg_pattern || '',
-                customThemeConfig: data.custom_theme_config || undefined,
+                organizerContact: rawContact,
+                themeId: data.theme_id || (loadedCustomTheme ? (loadedCustomTheme.id || 'custom') : 'popbrutalist'),
+                customAccentColor: data.custom_accent_color || loadedCustomTheme?.accentColor || '#fafafa',
+                bgSvgPattern: '',
+                customThemeConfig: loadedCustomTheme || undefined,
                 status: data.status || 'published',
                 createdAt: data.created_at || new Date().toISOString(),
                 updatedAt: data.updated_at || new Date().toISOString(),
@@ -548,10 +559,29 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
         customConfig = themes.find((t: any) => t.id === currentTheme) || themes[themes.length - 1];
       }
     } catch {}
+
+    if (!customConfig) {
+      const accent = event.customAccentColor || '#10b981';
+      customConfig = {
+        id: currentTheme,
+        name: 'Custom Theme',
+        mode: 'dark',
+        bgColor: '#080c14',
+        bgGradientEnd: '#0f172a',
+        cardBgColor: '#0f172aee',
+        cardBorderColor: `${accent}40`,
+        accentColor: accent,
+        textColor: '#ffffff',
+        subtextColor: '#94a3b8',
+        fontFamily: 'sans',
+        cardStyle: 'glass',
+        borderRadius: 'rounded-2xl'
+      };
+    }
   }
   const isCustom = currentTheme === 'custom' || currentTheme.startsWith('custom_') || currentTheme.startsWith('custom') || !!customConfig;
   const themeClass = isCustom ? 'theme-custom' : `theme-${currentTheme}`;
-  const accentColor = event.customAccentColor || customConfig?.accentColor || DEFAULT_THEME_ACCENTS[currentTheme] || '#fafafa';
+  const accentColor = customConfig?.accentColor || event.customAccentColor || DEFAULT_THEME_ACCENTS[currentTheme] || '#fafafa';
   const ctaTextColor = getContrastColor(accentColor);
 
   const customStyles: React.CSSProperties = {

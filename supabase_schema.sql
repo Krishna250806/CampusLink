@@ -56,6 +56,7 @@ CREATE TABLE public.events (
   organizer_contact JSONB DEFAULT '{}'::jsonb,
   theme_id TEXT DEFAULT 'midnight',
   custom_accent_color TEXT DEFAULT '#fafafa',
+  custom_theme_config JSONB DEFAULT '{}'::jsonb,
   bg_svg_pattern TEXT,
   links JSONB DEFAULT '[]'::jsonb,
   announcements JSONB DEFAULT '[]'::jsonb,

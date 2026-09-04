@@ -781,8 +781,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           : created.posterUrl;
 
         const saveUserId = activeUser?.id || user?.id || created.userId || 'usr_guest';
+        const customConfig = created.customThemeConfig;
 
-        supabase.from('events').upsert({
+        const payload: Record<string, any> = {
           id: created.id,
           user_id: saveUserId,
           committee_id: created.committeeId,
@@ -799,12 +800,30 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           primary_cta_text: created.primaryCtaText || 'Register Now',
           primary_cta_url: created.primaryCtaUrl || '',
           theme_id: created.themeId || 'popbrutalist',
-          custom_accent_color: created.customAccentColor || '#fafafa',
+          custom_accent_color: created.customAccentColor || (customConfig?.accentColor) || '#fafafa',
+          bg_svg_pattern: customConfig ? `CTC:${JSON.stringify(customConfig)}` : (created.bgSvgPattern || ''),
+          organizer_contact: {
+            ...(created.organizerContact || {}),
+            customThemeConfig: customConfig || null
+          },
           links: Array.isArray(created.links) ? created.links : [],
           announcements: Array.isArray(created.announcements) ? created.announcements : [],
           status: created.status || 'published'
-        }).then(({ error }) => {
-          if (error) console.warn('Supabase create event info:', error.message || error);
+        };
+
+        if (customConfig) {
+          payload.custom_theme_config = customConfig;
+        }
+
+        supabase.from('events').upsert(payload).then(({ error }) => {
+          if (error) {
+            if (error.message && error.message.includes('custom_theme_config')) {
+              delete payload.custom_theme_config;
+              supabase.from('events').upsert(payload).then(() => {});
+            } else {
+              console.warn('Supabase create event info:', error.message || error);
+            }
+          }
         });
       } catch (err) {}
     }
@@ -860,7 +879,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000'
           : updatedTargetEvent.posterUrl;
 
-        supabase.from('events').upsert({
+        const customConfig = updatedTargetEvent.customThemeConfig;
+
+        const payload: Record<string, any> = {
           id: updatedTargetEvent.id,
           user_id: user?.id || updatedTargetEvent.userId || 'comm_main',
           committee_id: updatedTargetEvent.committeeId,
@@ -877,12 +898,30 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           primary_cta_text: updatedTargetEvent.primaryCtaText || 'Register Now',
           primary_cta_url: updatedTargetEvent.primaryCtaUrl || '',
           theme_id: updatedTargetEvent.themeId || 'popbrutalist',
-          custom_accent_color: updatedTargetEvent.customAccentColor || '#fafafa',
+          custom_accent_color: updatedTargetEvent.customAccentColor || (customConfig?.accentColor) || '#fafafa',
+          bg_svg_pattern: customConfig ? `CTC:${JSON.stringify(customConfig)}` : (updatedTargetEvent.bgSvgPattern || ''),
+          organizer_contact: {
+            ...(updatedTargetEvent.organizerContact || {}),
+            customThemeConfig: customConfig || null
+          },
           links: Array.isArray(updatedTargetEvent.links) ? updatedTargetEvent.links : [],
           announcements: Array.isArray(updatedTargetEvent.announcements) ? updatedTargetEvent.announcements : [],
           status: updatedTargetEvent.status || 'published'
-        }).then(({ error }) => {
-          if (error) console.warn('Supabase update event info:', error.message || error);
+        };
+
+        if (customConfig) {
+          payload.custom_theme_config = customConfig;
+        }
+
+        supabase.from('events').upsert(payload).then(({ error }) => {
+          if (error) {
+            if (error.message && error.message.includes('custom_theme_config')) {
+              delete payload.custom_theme_config;
+              supabase.from('events').upsert(payload).then(() => {});
+            } else {
+              console.warn('Supabase update event info:', error.message || error);
+            }
+          }
         });
       } catch (err) {}
     }

@@ -66,14 +66,32 @@ export const PublicCommitteePage: React.FC = () => {
     return () => window.removeEventListener('focus', fetchSupabaseCommittee);
   }, [targetHandle]);
 
-  const committee = committeeList.find(c => c.handle.toLowerCase() === targetHandle)
-    || remoteCommittee
-    || (activeCommittee && activeCommittee.handle.toLowerCase() === targetHandle ? activeCommittee : undefined)
-    || activeCommittee
-    || committeeList[0]
-    || DEFAULT_FALLBACK_COMMITTEE;
+  const localMatch = committeeList.find(c => c.handle.toLowerCase() === targetHandle);
+  const isPlaceholderLogo = (url?: string | null) =>
+    !url ||
+    url.trim().length === 0 ||
+    url.includes('data:image/svg+xml;utf8,<svg') ||
+    url.includes('photo-1618005182384-a83a8bd57fbe');
 
-  const rawLogo = committee?.logoUrl || DEFAULT_FALLBACK_COMMITTEE.logoUrl;
+  const committee =
+    (remoteCommittee && !isPlaceholderLogo(remoteCommittee.logoUrl) ? remoteCommittee : undefined) ||
+    (localMatch && !isPlaceholderLogo(localMatch.logoUrl) ? localMatch : undefined) ||
+    remoteCommittee ||
+    localMatch ||
+    (activeCommittee && activeCommittee.handle.toLowerCase() === targetHandle ? activeCommittee : undefined) ||
+    activeCommittee ||
+    committeeList[0] ||
+    DEFAULT_FALLBACK_COMMITTEE;
+
+  const candidateLogos = [
+    remoteCommittee?.logoUrl,
+    localMatch?.logoUrl,
+    committee?.logoUrl,
+    activeCommittee?.logoUrl
+  ].filter((url): url is string => Boolean(url && typeof url === 'string' && url.trim().length > 0));
+
+  const customLogo = candidateLogos.find(url => !isPlaceholderLogo(url));
+  const rawLogo = customLogo || candidateLogos[0] || DEFAULT_FALLBACK_COMMITTEE.logoUrl;
   const committeeLogo = (rawLogo && rawLogo.startsWith('http'))
     ? `${rawLogo}${rawLogo.includes('?') ? '&' : '?'}v=${committee?.updatedAt || Date.now()}`
     : (rawLogo || DEFAULT_FALLBACK_COMMITTEE.logoUrl);

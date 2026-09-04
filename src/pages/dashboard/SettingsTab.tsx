@@ -37,6 +37,7 @@ export const SettingsTab: React.FC = () => {
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: (url: string) => void,
+    field: 'logoUrl' | 'coverUrl',
     maxW = 400,
     maxH = 400
   ) => {
@@ -45,14 +46,18 @@ export const SettingsTab: React.FC = () => {
       try {
         const compressed = await compressImage(file, maxW, maxH);
         setter(compressed);
-        toast.success('Image uploaded & optimized successfully!');
+        // Immediately persist to committee state, Supabase and live draft
+        updateCommittee(activeCommittee.id, { [field]: compressed });
+        toast.success(field === 'logoUrl' ? 'Logo uploaded & updated!' : 'Cover banner uploaded & updated!');
       } catch (err) {
         console.error('Image compression failed:', err);
         const reader = new FileReader();
         reader.onload = (event) => {
           if (event.target?.result) {
-            setter(event.target.result as string);
-            toast.success('Local image uploaded!');
+            const dataUrl = event.target.result as string;
+            setter(dataUrl);
+            updateCommittee(activeCommittee.id, { [field]: dataUrl });
+            toast.success('Local image uploaded & saved!');
           }
         };
         reader.readAsDataURL(file);
@@ -168,7 +173,7 @@ export const SettingsTab: React.FC = () => {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={e => handleFileUpload(e, setLogoUrl)}
+                  onChange={e => handleFileUpload(e, setLogoUrl, 'logoUrl')}
                 />
               </label>
             </div>
@@ -195,7 +200,7 @@ export const SettingsTab: React.FC = () => {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={e => handleFileUpload(e, setCoverUrl)}
+                  onChange={e => handleFileUpload(e, setCoverUrl, 'coverUrl')}
                 />
               </label>
             </div>

@@ -709,6 +709,23 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       description: newCommittee.description
     }));
 
+    if (isSupabaseConfigured()) {
+      try {
+        supabase.from('committees').upsert({
+          id: newCommittee.id,
+          user_id: newCommittee.userId,
+          name: newCommittee.name,
+          handle: newCommittee.handle.toLowerCase(),
+          tagline: newCommittee.tagline || '',
+          logo_url: newCommittee.logoUrl || '',
+          description: newCommittee.description || '',
+          socials: newCommittee.socials || {}
+        }).then(({ error }) => {
+          if (error) console.warn('Supabase create committee on signup:', error.message || error);
+        });
+      } catch (err) {}
+    }
+
     return { success: true };
   };
 
@@ -804,6 +821,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           bg_svg_pattern: customConfig ? `CTC:${JSON.stringify(customConfig)}` : (created.bgSvgPattern || ''),
           organizer_contact: {
             ...(created.organizerContact || {}),
+            committeeName: activeCommittee.name,
+            committeeHandle: activeCommittee.handle,
+            committeeLogoUrl: activeCommittee.logoUrl,
             customThemeConfig: customConfig || null
           },
           links: Array.isArray(created.links) ? created.links : [],
@@ -902,6 +922,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           bg_svg_pattern: customConfig ? `CTC:${JSON.stringify(customConfig)}` : (updatedTargetEvent.bgSvgPattern || ''),
           organizer_contact: {
             ...(updatedTargetEvent.organizerContact || {}),
+            committeeName: activeCommittee.name,
+            committeeHandle: activeCommittee.handle,
+            committeeLogoUrl: activeCommittee.logoUrl,
             customThemeConfig: customConfig || null
           },
           links: Array.isArray(updatedTargetEvent.links) ? updatedTargetEvent.links : [],
@@ -1123,31 +1146,30 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Committee Methods
   const updateCommittee = (committeeId: string, partial: Partial<Committee>) => {
-    let updatedTargetComm: Committee | undefined;
+    const targetId = committeeId || user?.committeeId || activeCommittee.id || 'comm_main';
+    const existing = committees.find(c => c.id === targetId || (user?.id && c.userId === user.id)) || activeCommittee;
+
+    const updatedTargetComm: Committee = {
+      ...existing,
+      ...partial,
+      id: existing?.id || targetId,
+      userId: user?.id || existing?.userId || 'comm_main',
+      handle: (partial.handle !== undefined ? partial.handle : existing?.handle || 'my-org').toLowerCase().replace(/[^a-z0-9_-]/g, '')
+    };
 
     setCommittees(prev => {
-      const targetId = committeeId || user?.committeeId || activeCommittee.id;
       const exists = prev.some(c => c.id === targetId || (user?.id && c.userId === user.id));
       let updated: Committee[];
 
       if (exists) {
         updated = prev.map(c => {
           if (c.id === targetId || (user?.id && c.userId === user.id)) {
-            const merged = { ...c, ...partial, id: c.id || targetId, userId: c.userId || user?.id };
-            updatedTargetComm = merged;
-            return merged;
+            return updatedTargetComm;
           }
           return c;
         });
       } else {
-        const newComm: Committee = {
-          ...activeCommittee,
-          ...partial,
-          id: targetId,
-          userId: user?.id
-        };
-        updatedTargetComm = newComm;
-        updated = [newComm, ...prev];
+        updated = [updatedTargetComm, ...prev];
       }
 
       safeLocalStorageSet(getUserCommitteesKey(user?.id), JSON.stringify(updated));
@@ -1162,7 +1184,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       DEFAULT_FALLBACK_COMMITTEE.name = partial.name;
     }
     if (partial.handle) {
-      DEFAULT_FALLBACK_COMMITTEE.handle = partial.handle;
+      DEFAULT_FALLBACK_COMMITTEE.handle = updatedTargetComm.handle;
     }
     if (partial.tagline) {
       DEFAULT_FALLBACK_COMMITTEE.tagline = partial.tagline;
@@ -1172,7 +1194,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     safeLocalStorageSet('campuslink_fallback_committee_v1', JSON.stringify({
-      id: updatedTargetComm?.id || 'comm_main',
+      id: updatedTargetComm.id,
       name: DEFAULT_FALLBACK_COMMITTEE.name,
       logoUrl: DEFAULT_FALLBACK_COMMITTEE.logoUrl,
       handle: DEFAULT_FALLBACK_COMMITTEE.handle,
@@ -1180,7 +1202,75 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       description: DEFAULT_FALLBACK_COMMITTEE.description
     }));
 
-    if (isSupabaseConfigured() && updatedTargetComm) {
+    // If logo or name changed, also update all events belonging to this committee so they carry the logo
+    if (partial.logoUrl || partial.name || partial.handle) {
+      setEvents(prev => {
+        const updatedEvents = prev.map(e => {
+          if (e.committeeId === updatedTargetComm.id || (user?.id && e.userId === user.id)) {
+            return {
+              ...e,
+              committeeName: updatedTargetComm.name,
+              committeeHandle: updatedTargetComm.handle,
+              committeeLogoUrl: updatedTargetComm.logoUrl,
+              organizerContact: {
+                ...(e.organizerContact || {}),
+                committeeName: updatedTargetComm.name,
+                committeeHandle: updatedTargetComm.handle,
+                committeeLogoUrl: updatedTargetComm.logoUrl
+              }
+            };
+          }
+          return e;
+        });
+        safeLocalStorageSet(getUserEventsKey(user?.id), JSON.stringify(updatedEvents));
+        safeLocalStorageSet(STORAGE_KEY_GLOBAL_EVENTS, JSON.stringify(updatedEvents));
+        return updatedEvents;
+      });
+    }
+
+    // Update live builder draft in localStorage
+    try {
+      const liveDraftStr = localStorage.getItem('campuslink_builder_live_draft');
+      if (liveDraftStr) {
+        const liveDraft = JSON.parse(liveDraftStr);
+        if (liveDraft && typeof liveDraft === 'object') {
+          if (partial.logoUrl) liveDraft.committeeLogoUrl = partial.logoUrl;
+          if (partial.name) liveDraft.committeeName = partial.name;
+          if (partial.handle) liveDraft.committeeHandle = updatedTargetComm.handle;
+          if (liveDraft.committee) {
+            liveDraft.committee = { ...liveDraft.committee, ...updatedTargetComm };
+          }
+          localStorage.setItem('campuslink_builder_live_draft', JSON.stringify(liveDraft));
+        }
+      }
+    } catch {}
+
+    // Post to /api/live-sync
+    try {
+      fetch('/api/live-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: updatedTargetComm.handle || 'latest',
+          committee: updatedTargetComm
+        })
+      }).catch(() => {});
+    } catch {}
+
+    // Broadcast across open tabs
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('campuslink_live_stream');
+        bc.postMessage({
+          type: 'COMMITTEE_UPDATE',
+          committee: updatedTargetComm
+        });
+        setTimeout(() => bc.close(), 100);
+      }
+    } catch {}
+
+    // Synchronize directly with Supabase committees table
+    if (isSupabaseConfigured()) {
       try {
         supabase.from('committees').upsert({
           id: updatedTargetComm.id,
@@ -1189,11 +1279,26 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           handle: updatedTargetComm.handle,
           tagline: updatedTargetComm.tagline || '',
           logo_url: updatedTargetComm.logoUrl || '',
+          cover_url: updatedTargetComm.coverUrl || '',
           description: updatedTargetComm.description || '',
           socials: updatedTargetComm.socials || {}
         }).then(({ error }) => {
           if (error) console.warn('Supabase update committee info:', error.message || error);
         });
+
+        // Also update events in Supabase for this committee so the logo is immediately loaded
+        if (partial.logoUrl) {
+          supabase.from('events')
+            .update({
+              organizer_contact: {
+                committeeName: updatedTargetComm.name,
+                committeeHandle: updatedTargetComm.handle,
+                committeeLogoUrl: updatedTargetComm.logoUrl
+              }
+            })
+            .or(`committee_id.eq.${updatedTargetComm.id},user_id.eq.${user?.id || updatedTargetComm.userId}`)
+            .then(() => {});
+        }
       } catch (err) {}
     }
   };

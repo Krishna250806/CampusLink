@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useCampusLink } from '../context/CampusLinkContext';
+import { useCampusLink, DEFAULT_FALLBACK_COMMITTEE } from '../context/CampusLinkContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { DynamicIcon } from '../components/common/DynamicIcon';
 import { QrModal } from '../components/common/QrModal';
@@ -42,6 +42,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   const [selectedModalContent, setSelectedModalContent] = useState<'schedule' | 'rulebook' | null>(null);
 
   const targetSlug = (eventSlug || '').toLowerCase();
+  const cleanHandleParam = (handle || '').toLowerCase().replace(/^@/, '');
   const [remoteEvent, setRemoteEvent] = useState<Event | null>(null);
   const [remoteCommittee, setRemoteCommittee] = useState<Committee | null>(null);
 
@@ -135,28 +136,44 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
               };
               setRemoteEvent(fetched);
 
-              if (data.committee_id || data.user_id) {
-                const { data: commData } = await supabase
-                  .from('committees')
-                  .select('*')
-                  .or(`id.eq.${data.committee_id},user_id.eq.${data.user_id}`)
-                  .maybeSingle();
+              // 3. Look up organizing committee from Supabase
+              const targetCommitteeHandle = (cleanHandleParam || rawContact.committeeHandle || '').trim().toLowerCase();
+              let commQuery = supabase.from('committees').select('*');
+              if (targetCommitteeHandle) {
+                commQuery = commQuery.or(`handle.eq.${targetCommitteeHandle},id.eq.${data.committee_id},user_id.eq.${data.user_id}`);
+              } else if (data.committee_id || data.user_id) {
+                commQuery = commQuery.or(`id.eq.${data.committee_id},user_id.eq.${data.user_id}`);
+              }
+              const { data: commData } = await commQuery.maybeSingle();
 
-                if (commData && isMounted) {
-                  setRemoteCommittee({
-                    id: commData.id,
-                    userId: commData.user_id,
-                    handle: commData.handle || 'org',
-                    name: commData.name || 'Student Committee',
-                    tagline: commData.tagline || '',
-                    logoUrl: commData.logo_url || '',
-                    coverUrl: commData.cover_url || '',
-                    description: commData.description || '',
-                    socials: commData.socials || {},
-                    members: [],
-                    verified: Boolean(commData.verified)
-                  });
-                }
+              if (commData && isMounted) {
+                setRemoteCommittee({
+                  id: commData.id,
+                  userId: commData.user_id,
+                  handle: commData.handle || targetCommitteeHandle || 'org',
+                  name: commData.name || rawContact.committeeName || 'Student Committee',
+                  tagline: commData.tagline || '',
+                  logoUrl: commData.logo_url || rawContact.committeeLogoUrl || '',
+                  coverUrl: commData.cover_url || '',
+                  description: commData.description || '',
+                  socials: commData.socials || {},
+                  members: [],
+                  verified: Boolean(commData.verified)
+                });
+              } else if ((rawContact.committeeLogoUrl || rawContact.committeeName) && isMounted) {
+                setRemoteCommittee({
+                  id: data.committee_id || 'comm_custom',
+                  userId: data.user_id || 'usr_guest',
+                  handle: targetCommitteeHandle || rawContact.committeeHandle || 'org',
+                  name: rawContact.committeeName || 'Student Committee',
+                  tagline: '',
+                  logoUrl: rawContact.committeeLogoUrl || '',
+                  coverUrl: '',
+                  description: '',
+                  socials: {},
+                  members: [],
+                  verified: false
+                });
               }
             }
           } catch (err) {}
@@ -349,12 +366,19 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   };
 
   // Match Committee based on user-defined data
-  const cleanHandleParam = (handle || '').toLowerCase().replace(/^@/, '');
-
   const isDefaultCommittee = (c?: Partial<Committee> | null) => {
     if (!c) return true;
-    return c.name === 'My Student Committee' && c.handle === 'my-org';
+    return (
+      (c.name === 'My Student Committee' && c.handle === 'my-org') ||
+      c.handle === 'my-org'
+    );
   };
+
+  const isDefaultLogo = (url?: string | null) =>
+    !url ||
+    url.trim().length === 0 ||
+    url.includes('data:image/svg+xml;utf8,<svg') ||
+    url.includes('photo-1618005182384-a83a8bd57fbe');
 
   // Check draft or decoded payload committee
   const committeeFromDraftOrPayload: Partial<Committee> | undefined =
@@ -375,23 +399,38 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
         }
       : undefined);
 
+  const localMatchByHandle = cleanHandleParam ? committeeList.find(c => c.handle?.toLowerCase() === cleanHandleParam) : undefined;
+  const localMatchById = committeeList.find(c => c.id === event?.committeeId && !isDefaultCommittee(c));
+
   const matchedCommittee =
-    (cleanHandleParam ? committeeList.find(c => c.handle?.toLowerCase() === cleanHandleParam) : undefined) ||
-    (committeeFromDraftOrPayload && !isDefaultCommittee(committeeFromDraftOrPayload) ? committeeFromDraftOrPayload : undefined) ||
     (remoteCommittee && !isDefaultCommittee(remoteCommittee) ? remoteCommittee : undefined) ||
-    committeeList.find(c => c.id === event?.committeeId && !isDefaultCommittee(c)) ||
+    (localMatchByHandle && !isDefaultCommittee(localMatchByHandle) ? localMatchByHandle : undefined) ||
+    (committeeFromDraftOrPayload && !isDefaultCommittee(committeeFromDraftOrPayload) ? committeeFromDraftOrPayload : undefined) ||
+    localMatchById ||
     (!isDefaultCommittee(activeCommittee) ? activeCommittee : undefined) ||
+    remoteCommittee ||
+    localMatchByHandle ||
     activeCommittee;
 
-  const rawLogo =
-    (committeeFromDraftOrPayload?.logoUrl && !committeeFromDraftOrPayload.logoUrl.includes('data:image/svg+xml;utf8,<svg'))
-      ? committeeFromDraftOrPayload.logoUrl
-      : (matchedCommittee?.logoUrl && !matchedCommittee.logoUrl.includes('data:image/svg+xml;utf8,<svg'))
-      ? matchedCommittee.logoUrl
-      : (event as any)?.committeeLogoUrl ||
-        (event as any)?.committee?.logoUrl ||
-        activeCommittee?.logoUrl ||
-        '';
+  // Candidate logos gathered from all available sources
+  const candidateLogos = [
+    (customEvent as any)?.committeeLogoUrl,
+    (customEvent as any)?.committee?.logoUrl,
+    liveDraft?.committeeLogoUrl,
+    liveDraft?.committee?.logoUrl,
+    (decodedEventFromUrl as any)?.committeeLogoUrl,
+    (decodedEventFromUrl as any)?.committee?.logoUrl,
+    remoteCommittee?.logoUrl,
+    (event as any)?.organizerContact?.committeeLogoUrl,
+    (event as any)?.committeeLogoUrl,
+    (event as any)?.committee?.logoUrl,
+    matchedCommittee?.logoUrl,
+    activeCommittee?.logoUrl
+  ].filter((url): url is string => Boolean(url && typeof url === 'string' && url.trim().length > 0));
+
+  // Find first custom non-placeholder logo; if none, fall back to first candidate or default SVG
+  const customLogo = candidateLogos.find(url => !isDefaultLogo(url));
+  const rawLogo = customLogo || candidateLogos[0] || DEFAULT_FALLBACK_COMMITTEE.logoUrl;
 
   const committeeLogo = (rawLogo && rawLogo.startsWith('http'))
     ? `${rawLogo}${rawLogo.includes('?') ? '&' : '?'}v=${matchedCommittee?.updatedAt || '1'}`

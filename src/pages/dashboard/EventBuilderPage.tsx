@@ -15,27 +15,24 @@ import {
   Trash2,
   Palette,
   Upload,
-  Image as ImageIcon,
-  Check,
   QrCode,
   ExternalLink
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { QrModal } from '../../components/common/QrModal';
-import { SVG_BACKGROUND_PRESETS } from '../../utils/svgBackgrounds';
 import { isoToDatetimeLocal, datetimeLocalToIso } from '../../utils/dateUtils';
 
-const THEMES_CONFIG: { id: ThemeId; name: string; desc: string; bgClass: string }[] = [
-  { id: 'popbrutalist', name: 'Neo-Brutalist Pop', desc: 'Vibrant yellow & hard drop shadows', bgClass: 'bg-yellow-400 border-2 border-black text-black font-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]' },
-  { id: 'crimson', name: 'Crimson Maroon', desc: 'Luxury dark velvet maroon & gold', bgClass: 'bg-[#2b080c] border-rose-900/60 text-rose-100 font-bold' },
-  { id: 'scarlet', name: 'Scarlet Rose', desc: 'Energetic light rose & deep crimson', bgClass: 'bg-rose-50 border-rose-300 text-rose-950 font-bold' },
-  { id: 'midnight', name: 'Midnight', desc: 'Monochromatic obsidian & white zinc', bgClass: 'bg-neutral-900 border-white/20 text-white' },
-  { id: 'aurora', name: 'Aurora', desc: 'Soft dark titanium', bgClass: 'bg-neutral-900 border-white/15 text-zinc-300' },
-  { id: 'cyber', name: 'Cyber', desc: 'Sharp tech minimal', bgClass: 'bg-neutral-900 border-white/15 text-zinc-200' },
-  { id: 'editorial', name: 'Editorial', desc: 'Warm ivory serif minimal', bgClass: 'bg-amber-50 border-stone-400 text-amber-950' },
-  { id: 'festive', name: 'Festive', desc: 'Vibrant party highlight', bgClass: 'bg-neutral-900 border-amber-400/40 text-amber-300' },
-  { id: 'minimal', name: 'Minimal', desc: 'Clean slate & graphite', bgClass: 'bg-slate-100 border-slate-300 text-slate-800' }
+const THEMES_CONFIG: { id: ThemeId; name: string; desc: string; bgClass: string; defaultAccent: string }[] = [
+  { id: 'midnight', name: 'Midnight', desc: 'Monochromatic obsidian glass', bgClass: 'bg-[#09090b] border-white/20 text-white', defaultAccent: '#fafafa' },
+  { id: 'aurora', name: 'Aurora', desc: 'Deep cosmic violet & soft glow', bgClass: 'bg-gradient-to-br from-[#1e1b4b] to-[#0f172a] border-purple-500/30 text-purple-100', defaultAccent: '#c084fc' },
+  { id: 'cyber', name: 'Cyber', desc: 'Sleek tech minimal & neon cyan', bgClass: 'bg-[#080b11] border-cyan-500/30 text-cyan-300 font-mono', defaultAccent: '#00f0ff' },
+  { id: 'editorial', name: 'Editorial', desc: 'Warm alabaster & serif type', bgClass: 'bg-[#faf7f2] border-stone-300 text-stone-900', defaultAccent: '#1c1917' },
+  { id: 'festive', name: 'Festive', desc: 'Royal amethyst & warm gold', bgClass: 'bg-gradient-to-br from-[#180b26] to-[#2d124d] border-amber-400/40 text-amber-200', defaultAccent: '#f59e0b' },
+  { id: 'minimal', name: 'Minimal', desc: 'Modern architect slate', bgClass: 'bg-[#f8fafc] border-slate-300 text-slate-900', defaultAccent: '#0f172a' },
+  { id: 'popbrutalist', name: 'Neo-Brutalist Pop', desc: 'Warm butter canvas & drop shadows', bgClass: 'bg-[#fffde7] border-2 border-black text-black font-extrabold shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]', defaultAccent: '#ffd600' },
+  { id: 'crimson', name: 'Crimson Maroon', desc: 'Luxury velvet maroon & soft rose', bgClass: 'bg-[#180407] border-rose-900/60 text-rose-100 font-bold', defaultAccent: '#f43f5e' },
+  { id: 'scarlet', name: 'Scarlet Rose', desc: 'Delicate blush & energetic crimson', bgClass: 'bg-[#fff5f5] border-rose-300 text-rose-950 font-bold', defaultAccent: '#e11d48' }
 ];
 
 import { DEFAULT_FALLBACK_COMMITTEE, DEFAULT_FALLBACK_EVENT } from '../../context/CampusLinkContext';
@@ -694,7 +691,11 @@ export const EventBuilderPage: React.FC = () => {
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => updateField('themeId', t.id)}
+                        onClick={() => {
+                          updateField('themeId', t.id);
+                          updateField('customAccentColor', t.defaultAccent);
+                          updateField('bgSvgPattern', '');
+                        }}
                         className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${t.bgClass} ${
                           draft.themeId === t.id ? 'ring-2 ring-white scale-105 shadow-xl' : 'opacity-80 hover:opacity-100'
                         }`}
@@ -703,46 +704,6 @@ export const EventBuilderPage: React.FC = () => {
                         <span className="text-[10px] opacity-75">{t.desc}</span>
                       </button>
                     ))}
-                  </div>
-                </div>
-
-                {/* SVG Background Asset Selector */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
-                    <ImageIcon className="w-4 h-4 text-amber-400" /> Select SVG Background Asset Pattern
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {SVG_BACKGROUND_PRESETS.map(preset => {
-                      const isSelected = (draft.bgSvgPattern || '') === preset.url;
-                      return (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() => updateField('bgSvgPattern', preset.url)}
-                          className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between h-28 group relative overflow-hidden ${
-                            isSelected
-                              ? 'bg-zinc-100 text-neutral-950 font-bold border-white scale-[1.02] shadow-xl'
-                              : 'bg-neutral-950 border-white/10 text-slate-300 hover:bg-neutral-800 hover:border-white/20'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between z-10 w-full">
-                            <span className="text-xs font-bold leading-tight truncate">{preset.name}</span>
-                            {isSelected && <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
-                          </div>
-                          {preset.url ? (
-                            <img
-                              src={preset.url}
-                              alt={preset.name}
-                              className="w-full h-12 rounded-xl object-fill border border-white/20 shadow-md z-10"
-                            />
-                          ) : (
-                            <div className="w-full h-12 rounded-xl bg-neutral-900 border border-white/10 flex items-center justify-center text-[10px] font-mono text-zinc-500 z-10">
-                              Solid Color
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
                   </div>
                 </div>
 

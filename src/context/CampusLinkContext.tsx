@@ -591,8 +591,8 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return;
     }
 
-    // Google Sign In fallback
-    const googleUserEmail = 'google.user@gmail.com';
+    // Google Sign In fallback for offline/unconfigured environment
+    const googleUserEmail = 'guest.organizer@campuslink.app';
     let registeredAccount = registeredAccounts.find(a => a.email.toLowerCase() === googleUserEmail);
 
     if (!registeredAccount) {
@@ -601,7 +601,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       registeredAccount = {
         id: newUserId,
-        name: 'Google Organizer',
+        name: 'Guest Organizer',
         email: googleUserEmail,
         committeeId: newCommId,
         handle: 'google-org',
@@ -1339,13 +1339,26 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }));
   };
 
-  const resetData = () => {
-    localStorage.clear();
+  const resetData = async () => {
+    try {
+      if (isSupabaseConfigured()) {
+        await supabase.auth.signOut();
+      }
+    } catch {}
+    if (typeof localStorage !== 'undefined') localStorage.clear();
+    if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
     setUser(null);
+    setRegisteredAccounts([]);
     setCommittees([]);
     setEvents([]);
     setAnalytics(INITIAL_ANALYTICS);
     setActiveEventIdState('');
+    toast.success('Workspace reset! Starting fresh.');
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 300);
+    }
   };
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCampusLink, DEFAULT_FALLBACK_COMMITTEE } from '../context/CampusLinkContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -48,6 +48,48 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
 
   const committeeList = allCommittees && allCommittees.length > 0 ? allCommittees : committees;
   const eventList = allEvents && allEvents.length > 0 ? allEvents : events;
+
+  // Decode URL payload if present (for 100% instant zero-backend QR scanner accuracy)
+  const decodedEventFromUrl: Event | null = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const queryParams = new URLSearchParams(window.location.search);
+    const encodedData = queryParams.get('d');
+    if (!encodedData) return null;
+    const decoded = decodeEventPayload(encodedData);
+    if (!decoded || !decoded.event) return null;
+
+    return {
+      id: targetSlug || decoded.event.id || 'evt_live',
+      slug: targetSlug || decoded.event.slug || 'event',
+      userId: decoded.event.userId || 'usr_guest',
+      committeeId: decoded.event.committeeId || 'comm_custom',
+      title: decoded.event.title || '',
+      tagline: decoded.event.tagline || '',
+      description: decoded.event.description || '',
+      posterUrl: decoded.event.posterUrl || '',
+      startDate: decoded.event.startDate || '',
+      endDate: decoded.event.endDate || '',
+      venue: decoded.event.venue || '',
+      address: decoded.event.address || '',
+      mapsUrl: decoded.event.mapsUrl || '',
+      primaryCtaText: decoded.event.primaryCtaText || 'Register Now',
+      primaryCtaUrl: decoded.event.primaryCtaUrl || '',
+      themeId: (decoded.event.themeId as any) || (decoded.event.customThemeConfig ? 'custom' : 'popbrutalist'),
+      customThemeConfig: decoded.event.customThemeConfig,
+      customAccentColor: decoded.event.customAccentColor || decoded.event.customThemeConfig?.accentColor || '#fafafa',
+      bgSvgPattern: decoded.event.bgSvgPattern || '',
+      committeeName: decoded.committee?.name || '',
+      committeeHandle: decoded.committee?.handle || '',
+      committeeLogoUrl: decoded.committee?.logoUrl || '',
+      links: Array.isArray(decoded.event.links) ? (decoded.event.links as EventLink[]) : [],
+      status: 'published',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      announcements: [],
+      schedule: [],
+      rulebook: []
+    } as any;
+  }, [targetSlug]);
 
   // Live Database & Local Network Sync
   useEffect(() => {
@@ -190,48 +232,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       clearInterval(interval);
       window.removeEventListener('focus', fetchLiveEvent);
     };
-  }, [targetSlug]);
-
-  // Decode URL payload if present (for 100% instant zero-backend QR scanner accuracy)
-  const queryParams = new URLSearchParams(window.location.search);
-  const encodedData = queryParams.get('d');
-  let decodedEventFromUrl: Event | null = null;
-  if (encodedData) {
-    const decoded = decodeEventPayload(encodedData);
-    if (decoded && decoded.event) {
-      decodedEventFromUrl = {
-        id: targetSlug || decoded.event.id || 'evt_live',
-        slug: targetSlug || decoded.event.slug || 'event',
-        userId: decoded.event.userId || 'usr_guest',
-        committeeId: decoded.event.committeeId || 'comm_custom',
-        title: decoded.event.title || '',
-        tagline: decoded.event.tagline || '',
-        description: decoded.event.description || '',
-        posterUrl: decoded.event.posterUrl || '',
-        startDate: decoded.event.startDate || '',
-        endDate: decoded.event.endDate || '',
-        venue: decoded.event.venue || '',
-        address: decoded.event.address || '',
-        mapsUrl: decoded.event.mapsUrl || '',
-        primaryCtaText: decoded.event.primaryCtaText || 'Register Now',
-        primaryCtaUrl: decoded.event.primaryCtaUrl || '',
-        themeId: (decoded.event.themeId as any) || (decoded.event.customThemeConfig ? 'custom' : 'popbrutalist'),
-        customThemeConfig: decoded.event.customThemeConfig,
-        customAccentColor: decoded.event.customAccentColor || decoded.event.customThemeConfig?.accentColor || '#fafafa',
-        bgSvgPattern: decoded.event.bgSvgPattern || '',
-        committeeName: decoded.committee?.name || '',
-        committeeHandle: decoded.committee?.handle || '',
-        committeeLogoUrl: decoded.committee?.logoUrl || '',
-        links: Array.isArray(decoded.event.links) ? (decoded.event.links as EventLink[]) : [],
-        status: 'published',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        announcements: [],
-        schedule: [],
-        rulebook: []
-      } as any;
-    }
-  }
+  }, [targetSlug, decodedEventFromUrl?.slug, decodedEventFromUrl?.id, cleanHandleParam]);
 
   // Auto-refetch trigger on visibility / focus / periodic interval so open tabs stay 100% synced with dashboard edits
   const [, setTick] = useState(0);

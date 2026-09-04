@@ -168,8 +168,4 @@ export interface AnalyticsSummary {
   linkClicksById: Record<string, number>;
 }
 
-export type EventItem = any;
-export type UserSession = any;
-export type CommitteeHub = any;
-export type StudentPass = any;
 

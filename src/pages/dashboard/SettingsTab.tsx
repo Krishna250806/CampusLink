@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useCampusLink } from '../../context/CampusLinkContext';
-import { Save, AlertCircle, Upload, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Save, AlertCircle, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { compressImage } from '../../utils/imageCompressor';
 
 const RESERVED_HANDLES = ['admin', 'api', 'dashboard', 'login', 'signup', 'auth', 'settings', 'help', 'app'];
 
 export const SettingsTab: React.FC = () => {
-  const { activeCommittee, updateCommittee, resetData } = useCampusLink();
+  const { activeCommittee, updateCommittee } = useCampusLink();
 
   const [name, setName] = useState(activeCommittee.name);
   const [handle, setHandle] = useState(activeCommittee.handle);
@@ -248,29 +248,6 @@ export const SettingsTab: React.FC = () => {
           </button>
         </div>
       </form>
-
-      {/* Danger Zone: Reset Local Testing Data */}
-      <div className="p-6 bg-red-950/20 border border-red-500/20 rounded-3xl space-y-3 shadow-xl">
-        <h3 className="text-sm font-bold text-red-400 flex items-center gap-2">
-          <Trash2 className="w-4 h-4 text-red-400" /> Reset Local Browser Workspace
-        </h3>
-        <p className="text-xs text-slate-400 leading-relaxed">
-          Wipe all browser cache, stored demo accounts, draft events, and local testing state so this browser starts completely fresh as if using CampusLink for the first time.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            if (window.confirm('Are you sure you want to wipe all local test data and start completely clean?')) {
-              resetData();
-            }
-          }}
-          className="px-4 py-2.5 bg-red-600/30 hover:bg-red-600/50 text-red-200 border border-red-500/40 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
-        >
-          <Trash2 className="w-3.5 h-3.5 text-red-300" />
-          <span>Clear Local Data & Log Out</span>
-        </button>
-      </div>
-
     </div>
   );
 };

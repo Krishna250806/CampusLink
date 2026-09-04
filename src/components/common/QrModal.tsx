@@ -69,13 +69,20 @@ export const QrModal: React.FC<QrModalProps> = ({
     }
   }
 
-  const targetSlug = event.slug || event.id || 'my-event';
-  const encodedPayload = encodeEventPayload(event, committee);
-  const payloadQuery = encodedPayload ? `?d=${encodedPayload}` : '';
+  const targetSlug = (event.slug || event.id || 'my-event').toLowerCase();
+  const cleanHandle = (committee?.handle || '').toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_-]/g, '');
+
+  const shortPath = (cleanHandle && cleanHandle !== 'my-org')
+    ? `/@${cleanHandle}/${targetSlug}`
+    : `/e/${targetSlug}`;
 
   // Clean base URL without trailing slashes
   const cleanBaseHost = (customHost.trim() || defaultOrigin).replace(/\/+$/, '');
-  const publicUrl = `${cleanBaseHost}/events/${targetSlug}${payloadQuery}`;
+
+  // Only include large base64 payload if user explicitly toggles full offline payload mode
+  const encodedPayload = encodeEventPayload(event, committee);
+  const payloadQuery = (qrMode === 'payload' && encodedPayload) ? `?d=${encodedPayload}` : '';
+  const publicUrl = `${cleanBaseHost}${shortPath}${payloadQuery}`;
 
   const isLocalhost = cleanBaseHost.includes('localhost') || cleanBaseHost.includes('127.0.0.1');
 
@@ -102,7 +109,7 @@ export const QrModal: React.FC<QrModalProps> = ({
 
         const opts = {
           width: 600,
-          margin: 4,
+          margin: 2,
           color: { dark: darkColor, light: lightColor },
           errorCorrectionLevel: 'M' as const
         };
@@ -314,7 +321,7 @@ export const QrModal: React.FC<QrModalProps> = ({
           </p>
 
           <p className="mt-1.5 text-[11px] font-mono opacity-70 truncate max-w-sm mx-auto">
-            {cleanBaseHost}/events/{targetSlug}
+            {cleanBaseHost}{shortPath}
           </p>
         </div>
 

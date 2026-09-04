@@ -3,7 +3,6 @@ import { Modal } from './Modal';
 import type { Event, Committee } from '../../types/campuslink';
 import { Copy, Check, MessageCircle, ShieldAlert, Globe } from 'lucide-react';
 import { toast } from 'sonner';
-import { encodeEventPayload } from '../../utils/urlPayload';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -41,12 +40,22 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     }
   }
 
-  const targetSlug = event.slug || event.id || 'my-event';
+  const targetSlug = (event.slug || event.id || 'my-event').toLowerCase();
+  const cleanHandle = (committee?.handle || '').toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_-]/g, '');
 
-  const encodedPayload = encodeEventPayload(event, committee);
-  const payloadQuery = encodedPayload ? `?d=${encodedPayload}` : '';
+  const shortPath = (cleanHandle && cleanHandle !== 'my-org')
+    ? `/@${cleanHandle}/${targetSlug}`
+    : `/e/${targetSlug}`;
 
-  const publicUrl = `${window.location.origin}/events/${targetSlug}${payloadQuery}`;
+  const defaultOrigin = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? (import.meta.env.VITE_PUBLIC_APP_URL || 'https://campuslink-lyart.vercel.app')
+        : window.location.origin)
+    : 'https://campuslink-lyart.vercel.app';
+
+  const cleanBaseHost = defaultOrigin.replace(/\/+$/, '');
+  const publicUrl = `${cleanBaseHost}${shortPath}`;
+
   const whatsappText = encodeURIComponent(
     `Check out ${event?.title || 'Event'} by ${committee?.name || 'Committee'}!\n"${event?.tagline || ''}"\n\nRegister & Details: ${publicUrl}`
   );
@@ -54,7 +63,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const handleCopy = () => {
     navigator.clipboard.writeText(publicUrl);
     setCopied(true);
-    toast.success("Event link copied to clipboard!");
+    toast.success("Short event link copied to clipboard!");
     setTimeout(() => setCopied(false), 2000);
   };
 

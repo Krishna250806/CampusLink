@@ -29,10 +29,13 @@ export function App() {
           <Route path="/dashboard/builder/:eventId" element={<EventBuilderPage />} />
 
           {/* Public Event Routes */}
+          <Route path="/e/:eventSlug" element={<PublicEventPage />} />
           <Route path="/events/:eventSlug" element={<PublicEventPage />} />
           <Route path="/event/:eventSlug" element={<PublicEventPage />} />
           <Route path="/@:handle/:eventSlug" element={<PublicEventPage />} />
           <Route path="/@:handle" element={<PublicCommitteePage />} />
+          <Route path="/c/:handle" element={<PublicCommitteePage />} />
+          <Route path="/:handle/:eventSlug" element={<PublicEventPage />} />
 
           {/* Fallback redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />

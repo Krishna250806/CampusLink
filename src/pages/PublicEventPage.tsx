@@ -63,10 +63,9 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
         if (res.ok) {
           const json = await res.json();
           if (json && json.event && isMounted) {
-            if (Array.isArray(json.event.links) && json.event.links.length > 0) {
-              setRemoteEvent(json.event);
-              if (json.committee) setRemoteCommittee(json.committee);
-              return;
+            setRemoteEvent(json.event);
+            if (json.committee && json.committee.handle !== 'my-org') {
+              setRemoteCommittee(json.committee);
             }
           }
         }

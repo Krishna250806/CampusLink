@@ -113,6 +113,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
                 themeId: data.theme_id || 'popbrutalist',
                 customAccentColor: data.custom_accent_color || '#fafafa',
                 bgSvgPattern: data.bg_svg_pattern || '',
+                customThemeConfig: data.custom_theme_config || undefined,
                 status: data.status || 'published',
                 createdAt: data.created_at || new Date().toISOString(),
                 updatedAt: data.updated_at || new Date().toISOString(),
@@ -187,8 +188,9 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
         mapsUrl: decoded.event.mapsUrl || '',
         primaryCtaText: decoded.event.primaryCtaText || 'Register Now',
         primaryCtaUrl: decoded.event.primaryCtaUrl || '',
-        themeId: (decoded.event.themeId as any) || 'popbrutalist',
-        customAccentColor: decoded.event.customAccentColor || '#fafafa',
+        themeId: (decoded.event.themeId as any) || (decoded.event.customThemeConfig ? 'custom' : 'popbrutalist'),
+        customThemeConfig: decoded.event.customThemeConfig,
+        customAccentColor: decoded.event.customAccentColor || decoded.event.customThemeConfig?.accentColor || '#fafafa',
         bgSvgPattern: decoded.event.bgSvgPattern || '',
         committeeName: decoded.committee?.name || '',
         committeeHandle: decoded.committee?.handle || '',
@@ -537,8 +539,17 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
   };
 
   const currentTheme = event.themeId || 'midnight';
-  const customConfig = event.customThemeConfig;
-  const isCustom = currentTheme === 'custom' || currentTheme.startsWith('custom') || !!customConfig;
+  let customConfig = event.customThemeConfig;
+  if (!customConfig && (currentTheme === 'custom' || currentTheme.startsWith('custom_') || currentTheme.startsWith('custom'))) {
+    try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('campuslink_custom_themes') : null;
+      if (stored) {
+        const themes = JSON.parse(stored);
+        customConfig = themes.find((t: any) => t.id === currentTheme) || themes[themes.length - 1];
+      }
+    } catch {}
+  }
+  const isCustom = currentTheme === 'custom' || currentTheme.startsWith('custom_') || currentTheme.startsWith('custom') || !!customConfig;
   const themeClass = isCustom ? 'theme-custom' : `theme-${currentTheme}`;
   const accentColor = event.customAccentColor || customConfig?.accentColor || DEFAULT_THEME_ACCENTS[currentTheme] || '#fafafa';
   const ctaTextColor = getContrastColor(accentColor);

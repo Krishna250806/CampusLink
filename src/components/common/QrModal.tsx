@@ -53,6 +53,22 @@ export const QrModal: React.FC<QrModalProps> = ({
     }
   }
 
+  // Ensure QR payload always includes customThemeConfig for custom themes
+  if (!event.customThemeConfig && (event.themeId === 'custom' || event.themeId?.startsWith('custom_') || event.themeId?.startsWith('custom'))) {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('campuslink_custom_themes');
+        if (stored) {
+          const list = JSON.parse(stored);
+          const found = list.find((t: any) => t.id === event.themeId) || list[list.length - 1];
+          if (found) {
+            event = { ...event, customThemeConfig: found };
+          }
+        }
+      } catch {}
+    }
+  }
+
   const targetSlug = event.slug || event.id || 'my-event';
   const encodedPayload = encodeEventPayload(event, committee);
   const payloadQuery = encodedPayload ? `?d=${encodedPayload}` : '';

@@ -743,6 +743,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         phone: ''
       },
       themeId: (newEventData.themeId as ThemeId) || 'midnight',
+      customThemeConfig: newEventData.customThemeConfig,
       customAccentColor: newEventData.customAccentColor || '#fafafa',
       status: 'published',
       createdAt: new Date().toISOString(),

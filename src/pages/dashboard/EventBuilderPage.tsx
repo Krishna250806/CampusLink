@@ -92,6 +92,21 @@ export const EventBuilderPage: React.FC = () => {
         primaryCtaText: liveDraftSaved?.primaryCtaText || targetEvent?.primaryCtaText || "Register Now",
         primaryCtaUrl: liveDraftSaved?.primaryCtaUrl || targetEvent?.primaryCtaUrl || "",
         themeId: liveDraftSaved?.themeId || targetEvent?.themeId || "popbrutalist",
+        customThemeConfig: (() => {
+          if (liveDraftSaved?.customThemeConfig) return liveDraftSaved.customThemeConfig;
+          if (targetEvent?.customThemeConfig) return targetEvent.customThemeConfig;
+          const tid = liveDraftSaved?.themeId || targetEvent?.themeId;
+          if (tid && (tid === 'custom' || tid.startsWith('custom_'))) {
+            try {
+              const stored = typeof window !== 'undefined' ? localStorage.getItem('campuslink_custom_themes') : null;
+              if (stored) {
+                const list = JSON.parse(stored);
+                return list.find((t: any) => t.id === tid) || list[0];
+              }
+            } catch {}
+          }
+          return undefined;
+        })(),
         customAccentColor: liveDraftSaved?.customAccentColor || targetEvent?.customAccentColor || "#fafafa",
         organizerContact: {
           name: safeCommittee.name,

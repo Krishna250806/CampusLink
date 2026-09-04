@@ -98,14 +98,15 @@ export const CustomThemeModal: React.FC<CustomThemeModalProps> = ({
   initialTheme,
   onSave
 }) => {
-  const [name, setName] = useState('My Custom Theme');
+  const [selectedPresetLabel, setSelectedPresetLabel] = useState<string | null>(STARTER_PRESETS[0].label);
+  const [name, setName] = useState('Cosmic Emerald 101');
   const [mode, setMode] = useState<'dark' | 'light'>('dark');
-  const [bgColor, setBgColor] = useState('#0a0c16');
+  const [bgColor, setBgColor] = useState('#06130d');
   const [hasGradient, setHasGradient] = useState(true);
-  const [bgGradientEnd, setBgGradientEnd] = useState('#16102e');
-  const [cardBgColor, setCardBgColor] = useState('#15162a');
-  const [cardBorderColor, setCardBorderColor] = useState('#8b5cf644');
-  const [accentColor, setAccentColor] = useState('#8b5cf6');
+  const [bgGradientEnd, setBgGradientEnd] = useState('#092419');
+  const [cardBgColor, setCardBgColor] = useState('#0a2e20');
+  const [cardBorderColor, setCardBorderColor] = useState('#10b98144');
+  const [accentColor, setAccentColor] = useState('#10b981');
   const [fontFamily, setFontFamily] = useState<'sans' | 'display' | 'serif' | 'mono'>('display');
   const [cardStyle, setCardStyle] = useState<'glass' | 'flat' | 'bordered' | 'brutalist'>('glass');
   const [borderRadius, setBorderRadius] = useState<'rounded-xl' | 'rounded-2xl' | 'rounded-3xl'>('rounded-2xl');
@@ -123,8 +124,21 @@ export const CustomThemeModal: React.FC<CustomThemeModalProps> = ({
       setFontFamily(initialTheme.fontFamily);
       setCardStyle(initialTheme.cardStyle);
       setBorderRadius(initialTheme.borderRadius);
-    } else {
-      setName(`Custom Theme ${Math.floor(Math.random() * 900) + 100}`);
+      setSelectedPresetLabel(null);
+    } else if (isOpen) {
+      const defaultPreset = STARTER_PRESETS[0];
+      setName(`${defaultPreset.label} ${Math.floor(Math.random() * 900) + 100}`);
+      setMode(defaultPreset.config.mode);
+      setBgColor(defaultPreset.config.bgColor);
+      setHasGradient(Boolean(defaultPreset.config.bgGradientEnd));
+      setBgGradientEnd(defaultPreset.config.bgGradientEnd || defaultPreset.config.bgColor);
+      setCardBgColor(defaultPreset.config.cardBgColor);
+      setCardBorderColor(defaultPreset.config.cardBorderColor);
+      setAccentColor(defaultPreset.config.accentColor);
+      setFontFamily(defaultPreset.config.fontFamily);
+      setCardStyle(defaultPreset.config.cardStyle);
+      setBorderRadius(defaultPreset.config.borderRadius);
+      setSelectedPresetLabel(defaultPreset.label);
     }
   }, [initialTheme, isOpen]);
 
@@ -187,17 +201,29 @@ export const CustomThemeModal: React.FC<CustomThemeModalProps> = ({
             <span>Quick Starter Presets (One-Click Base)</span>
           </label>
           <div className="flex flex-wrap gap-2">
-            {STARTER_PRESETS.map(p => (
-              <button
-                key={p.label}
-                type="button"
-                onClick={() => applyPreset(p)}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-neutral-900 border border-white/10 hover:border-white/30 text-slate-200 transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.config.accentColor }} />
-                <span>{p.label}</span>
-              </button>
-            ))}
+            {STARTER_PRESETS.map(p => {
+              const isSelected = selectedPresetLabel === p.label;
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => {
+                    applyPreset(p);
+                    setSelectedPresetLabel(p.label);
+                    setName(`${p.label} ${Math.floor(Math.random() * 900) + 100}`);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    isSelected
+                      ? 'bg-neutral-800 border-2 border-white text-white shadow-lg scale-105'
+                      : 'bg-neutral-900 border border-white/10 hover:border-white/30 text-slate-300'
+                  }`}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.config.accentColor }} />
+                  <span>{p.label}</span>
+                  {isSelected && <Check className="w-3 h-3 text-emerald-400" />}
+                </button>
+              );
+            })}
           </div>
         </div>
 

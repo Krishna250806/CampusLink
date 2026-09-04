@@ -28,7 +28,17 @@ export const AppearanceTab: React.FC = () => {
     try {
       const stored = localStorage.getItem('campuslink_custom_themes');
       if (stored) {
-        setCustomThemes(JSON.parse(stored));
+        const loaded: CustomThemeConfig[] = JSON.parse(stored);
+        setCustomThemes(loaded);
+        if (activeEvent && (activeEvent.themeId === 'custom' || activeEvent.themeId?.startsWith('custom_')) && !activeEvent.customThemeConfig) {
+          const match = loaded.find(t => t.id === activeEvent.themeId) || loaded[0];
+          if (match) {
+            updateEvent(activeEvent.id, {
+              customThemeConfig: match,
+              customAccentColor: match.accentColor
+            });
+          }
+        }
       }
     } catch (e) {
       console.error('Failed to load custom themes from storage', e);
@@ -273,7 +283,18 @@ export const AppearanceTab: React.FC = () => {
             <input
               type="color"
               value={activeEvent.customAccentColor || (isCustomActive && activeEvent.customThemeConfig ? activeEvent.customThemeConfig.accentColor : currentThemePreset.defaultAccent)}
-              onChange={e => updateEvent(activeEvent.id, { customAccentColor: e.target.value })}
+              onChange={e => {
+                const val = e.target.value;
+                updateEvent(activeEvent.id, {
+                  customAccentColor: val,
+                  ...(activeEvent.customThemeConfig ? {
+                    customThemeConfig: {
+                      ...activeEvent.customThemeConfig,
+                      accentColor: val
+                    }
+                  } : {})
+                });
+              }}
               className="w-14 h-12 rounded-2xl bg-neutral-950 border border-white/10 cursor-pointer"
             />
             <div className="flex-1 space-y-1">
@@ -281,7 +302,18 @@ export const AppearanceTab: React.FC = () => {
               <input
                 type="text"
                 value={activeEvent.customAccentColor || (isCustomActive && activeEvent.customThemeConfig ? activeEvent.customThemeConfig.accentColor : currentThemePreset.defaultAccent)}
-                onChange={e => updateEvent(activeEvent.id, { customAccentColor: e.target.value })}
+                onChange={e => {
+                  const val = e.target.value;
+                  updateEvent(activeEvent.id, {
+                    customAccentColor: val,
+                    ...(activeEvent.customThemeConfig ? {
+                      customThemeConfig: {
+                        ...activeEvent.customThemeConfig,
+                        accentColor: val
+                      }
+                    } : {})
+                  });
+                }}
                 className="w-full px-3 py-2 bg-neutral-950 border border-white/10 rounded-xl text-xs font-mono text-slate-200"
               />
             </div>

@@ -25,6 +25,25 @@ export function encodeEventPayload(event: Partial<Event>, committee?: Partial<Co
     if (event.customAccentColor && event.customAccentColor !== '#fafafa') obj.ac = event.customAccentColor;
     if (event.bgSvgPattern && event.bgSvgPattern.length < 100) obj.bg = event.bgSvgPattern;
 
+    if (event.customThemeConfig) {
+      const c = event.customThemeConfig;
+      obj.ctc = {
+        id: c.id,
+        n: c.name,
+        m: c.mode === 'light' ? 'l' : 'd',
+        bg: c.bgColor,
+        bge: c.bgGradientEnd || '',
+        cbg: c.cardBgColor,
+        cb: c.cardBorderColor,
+        ac: c.accentColor,
+        tx: c.textColor,
+        stx: c.subtextColor,
+        ff: c.fontFamily,
+        cs: c.cardStyle,
+        br: c.borderRadius
+      };
+    }
+
     if (committee?.name) obj.cn = committee.name;
     if (committee?.handle) obj.ch = committee.handle;
     if (committee?.logoUrl && committee.logoUrl.length < 800) obj.cl = committee.logoUrl;
@@ -89,6 +108,26 @@ export function decodeEventPayload(encoded: string): { event: Partial<Event>; co
       clickCount: 0
     })) : [];
 
+    let customThemeConfig = undefined;
+    if (parsed.ctc) {
+      const c = parsed.ctc;
+      customThemeConfig = {
+        id: c.id || parsed.th || 'custom_url',
+        name: c.n || 'Custom Theme',
+        mode: c.m === 'l' ? 'light' : 'dark',
+        bgColor: c.bg || '#090d16',
+        bgGradientEnd: c.bge || undefined,
+        cardBgColor: c.cbg || '#15162a',
+        cardBorderColor: c.cb || '#8b5cf644',
+        accentColor: c.ac || parsed.ac || '#8b5cf6',
+        textColor: c.tx || '#ffffff',
+        subtextColor: c.stx || '#cbd5e1',
+        fontFamily: c.ff || 'display',
+        cardStyle: c.cs || 'glass',
+        borderRadius: c.br || 'rounded-2xl'
+      };
+    }
+
     const event: Partial<Event> = {
       id: parsed.id || parsed.eventId,
       title: parsed.t || parsed.title,
@@ -102,8 +141,9 @@ export function decodeEventPayload(encoded: string): { event: Partial<Event>; co
       mapsUrl: parsed.m || parsed.mapsUrl,
       primaryCtaText: parsed.c || parsed.primaryCtaText,
       primaryCtaUrl: parsed.u || parsed.primaryCtaUrl,
-      themeId: parsed.th || parsed.themeId,
-      customAccentColor: parsed.ac || parsed.customAccentColor,
+      themeId: parsed.th || (customThemeConfig ? 'custom' : parsed.themeId),
+      customThemeConfig: customThemeConfig || parsed.customThemeConfig,
+      customAccentColor: parsed.ac || (customThemeConfig as any)?.accentColor || parsed.customAccentColor,
       bgSvgPattern: parsed.bg || parsed.bgSvgPattern,
       links: parsedLinks
     };

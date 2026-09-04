@@ -47,7 +47,7 @@ export const signInWithEmail = async (email: string, password: string) => {
 };
 
 export const signInWithGoogle = async () => {
-  let currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://campuslink-lyart.vercel.app';
+  let currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://campuslink-fest.vercel.app';
   if (!currentOrigin.startsWith('http://') && !currentOrigin.startsWith('https://')) {
     currentOrigin = `https://${currentOrigin}`;
   }

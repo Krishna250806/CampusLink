@@ -49,9 +49,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   const defaultOrigin = typeof window !== 'undefined'
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? (import.meta.env.VITE_PUBLIC_APP_URL || 'https://campuslink-lyart.vercel.app')
+        ? (import.meta.env.VITE_PUBLIC_APP_URL || 'https://campuslink-fest.vercel.app')
         : window.location.origin)
-    : 'https://campuslink-lyart.vercel.app';
+    : 'https://campuslink-fest.vercel.app';
 
   const cleanBaseHost = defaultOrigin.replace(/\/+$/, '');
   const publicUrl = `${cleanBaseHost}${shortPath}`;

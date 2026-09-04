@@ -7,7 +7,6 @@ import { QrModal } from '../components/common/QrModal';
 import { ShareModal } from '../components/common/ShareModal';
 import { Modal } from '../components/common/Modal';
 import type { EventLink, Announcement, ScheduleItem, RulebookSection, Event, Committee } from '../types/campuslink';
-import { resolveSvgPattern } from '../utils/svgBackgrounds';
 import { decodeEventPayload } from '../utils/urlPayload';
 import {
   Calendar,
@@ -514,42 +513,51 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
     year: 'numeric'
   });
 
-  const themeClass = `theme-${event.themeId || 'midnight'}`;
-  const accentColor = event.customAccentColor || '#8b5cf6';
-  const activeSvgUrl = resolveSvgPattern(event.bgSvgPattern);
+  const DEFAULT_THEME_ACCENTS: Record<string, string> = {
+    midnight: '#fafafa',
+    aurora: '#c084fc',
+    cyber: '#00f0ff',
+    editorial: '#1c1917',
+    festive: '#f59e0b',
+    minimal: '#0f172a',
+    popbrutalist: '#ffd600',
+    crimson: '#f43f5e',
+    scarlet: '#e11d48'
+  };
+
+  const getContrastColor = (hexColor: string) => {
+    let hex = (hexColor || '#ffffff').replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+    if (hex.length !== 6) return '#09090b';
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.55 ? '#09090b' : '#ffffff';
+  };
+
+  const currentTheme = event.themeId || 'midnight';
+  const themeClass = `theme-${currentTheme}`;
+  const accentColor = event.customAccentColor || DEFAULT_THEME_ACCENTS[currentTheme] || '#fafafa';
+  const ctaTextColor = getContrastColor(accentColor);
 
   return (
     <div
       className={`min-h-screen w-full transition-colors duration-300 pb-12 relative overflow-hidden ${themeClass}`}
       style={{ '--accent-color': accentColor } as React.CSSProperties}
     >
-      {/* SVG Background Pattern Overlay */}
-      {activeSvgUrl && (
-        <div
-          className="absolute inset-0 pointer-events-none z-0 opacity-90 transition-all duration-300"
-          style={{
-            backgroundImage: `url("${activeSvgUrl.replace(/"/g, "'")}")`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center top',
-            backgroundRepeat: 'no-repeat',
-            filter: event.themeId === 'popbrutalist' || event.themeId === 'minimal' || event.themeId === 'editorial' || event.themeId === 'scarlet'
-              ? 'none'
-              : 'brightness(1.6) contrast(1.25) saturate(1.2)'
-          }}
-        />
-      )}
       {/* Top Floating Action Bar (QR & Share) */}
       {!isPreview && (
-        <header className="sticky top-0 z-40 px-4 py-3 bg-neutral-950/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between">
+        <header className="sticky top-0 z-40 px-4 py-3 theme-header backdrop-blur-md flex items-center justify-between transition-colors">
           <Link to={`/@${committee.handle}`} className="flex items-center gap-2 text-xs font-semibold hover:opacity-80 transition-opacity">
             {committee.logoUrl ? (
               <img
                 src={committee.logoUrl}
                 alt={committee.name}
-                className="w-6 h-6 rounded-full object-cover border border-white/20 bg-neutral-900"
+                className="w-6 h-6 rounded-full object-cover border border-current/20 bg-neutral-900"
               />
             ) : (
-              <div className="w-6 h-6 rounded-full bg-white/20 text-white flex items-center justify-center text-[10px] font-bold uppercase">
+              <div className="w-6 h-6 rounded-full bg-current/20 flex items-center justify-center text-[10px] font-bold uppercase">
                 {committee.name ? committee.name.charAt(0) : 'C'}
               </div>
             )}
@@ -559,7 +567,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsQrOpen(true)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95"
+              className="p-2 rounded-xl theme-header-btn text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95"
               title="Get QR Code"
             >
               <QrCode className="w-4 h-4" />
@@ -568,7 +576,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
 
             <button
               onClick={() => setIsShareOpen(true)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95"
+              className="p-2 rounded-xl theme-header-btn text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95"
               title="Share Event"
             >
               <Share2 className="w-4 h-4" />
@@ -582,7 +590,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
       <main className="max-w-xl mx-auto px-4 pt-4 sm:pt-6 space-y-6 relative z-10">
         
         {/* HERO SECTION */}
-        <section className="relative rounded-3xl overflow-hidden border border-white/15 shadow-2xl bg-slate-900/60 backdrop-blur-xl">
+        <section className="relative rounded-3xl overflow-hidden theme-hero-card shadow-2xl transition-all">
           {/* Poster Background / Banner */}
           <div className="relative h-48 sm:h-60 w-full overflow-hidden bg-gradient-to-br from-neutral-900 via-zinc-950 to-neutral-900">
             {event.posterUrl ? (
@@ -593,11 +601,10 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
               />
             ) : null}
             {/* Gradient Overlays */}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/60 via-transparent to-slate-950/60" />
+            <div className="absolute inset-0 theme-poster-gradient" />
 
             {/* Committee Floating Badge */}
-            <div className="absolute top-4 left-4 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/15 text-xs font-medium text-white shadow-lg">
+            <div className="absolute top-4 left-4 flex items-center gap-2 theme-hero-badge px-3 py-1.5 rounded-full text-xs font-medium shadow-lg backdrop-blur-md">
               {committee.logoUrl ? (
                 <img
                   src={committee.logoUrl}
@@ -605,7 +612,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
                   className="w-4 h-4 rounded-full object-cover bg-neutral-900"
                 />
               ) : (
-                <div className="w-4 h-4 rounded-full bg-white/20 text-white flex items-center justify-center text-[9px] font-bold uppercase">
+                <div className="w-4 h-4 rounded-full bg-current/20 flex items-center justify-center text-[9px] font-bold uppercase">
                   {committee.name ? committee.name.charAt(0) : 'C'}
                 </div>
               )}
@@ -615,96 +622,96 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
           </div>
 
           {/* Hero Content Body */}
-          <div className="p-5 sm:p-7 relative -mt-10 space-y-5">
+          <div className="p-5 sm:p-7 relative -mt-8 space-y-5">
             <div>
-              <h1 className="text-3xl sm:text-4xl font-black font-heading tracking-tight leading-tight drop-shadow-md text-white">
+              <h1 className="text-3xl sm:text-4xl font-black font-heading tracking-tight leading-tight drop-shadow-sm theme-hero-title">
                 {event.title || 'Untitled Event'}
               </h1>
               {event.tagline && (
-                <p className="text-base sm:text-lg font-medium opacity-90 mt-1 font-sans italic text-zinc-300">
+                <p className="text-base sm:text-lg font-medium mt-1 font-sans italic theme-hero-tagline">
                   "{event.tagline}"
                 </p>
               )}
             </div>
 
             {/* Venue & Date Meta Rows */}
-            <div className="space-y-2 text-xs sm:text-sm opacity-85 font-medium">
+            <div className="space-y-2 text-xs sm:text-sm font-medium theme-meta-text">
               {(startDateStr || endDateStr) && (
                 <div className="flex items-center gap-2.5">
-                  <Calendar className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <Calendar className="w-4 h-4 theme-meta-icon flex-shrink-0" />
                   <span>{startDateStr}{endDateStr && endDateStr !== startDateStr ? ` — ${endDateStr}` : ''}</span>
                 </div>
               )}
               {(event.venue || event.address) && (
                 <div className="flex items-center gap-2.5">
-                  <MapPin className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <MapPin className="w-4 h-4 theme-meta-icon flex-shrink-0" />
                   <span className="truncate">{event.venue}{event.address && event.venue ? ` • ${event.address}` : (event.address || '')}</span>
                 </div>
               )}
             </div>
 
             {/* Live Countdown Timer */}
-            <div className="p-4 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
+            <div className="p-4 rounded-2xl theme-countdown-container backdrop-blur-md transition-all">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5 font-mono">
-                  <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin-slow" /> Event Countdown
+                <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 font-mono theme-meta-text">
+                  <Clock className="w-3.5 h-3.5 theme-meta-icon animate-spin-slow" /> Event Countdown
                 </span>
-                <span className="text-[10px] opacity-60 font-mono">LIVE TICK</span>
+                <span className="text-[10px] font-mono theme-countdown-label opacity-75">LIVE TICK</span>
               </div>
               <div className="grid grid-cols-4 gap-2 text-center">
-                <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-lg sm:text-xl font-bold font-mono text-white block">{timeLeft.days}</span>
-                  <span className="text-[9px] uppercase tracking-wider opacity-60">Days</span>
+                <div className="p-2 rounded-xl theme-countdown-box">
+                  <span className="text-lg sm:text-xl font-bold font-mono theme-countdown-num block">{timeLeft.days}</span>
+                  <span className="text-[9px] uppercase tracking-wider theme-countdown-label font-bold">Days</span>
                 </div>
-                <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-lg sm:text-xl font-bold font-mono text-white block">{timeLeft.hours}</span>
-                  <span className="text-[9px] uppercase tracking-wider opacity-60">Hours</span>
+                <div className="p-2 rounded-xl theme-countdown-box">
+                  <span className="text-lg sm:text-xl font-bold font-mono theme-countdown-num block">{timeLeft.hours}</span>
+                  <span className="text-[9px] uppercase tracking-wider theme-countdown-label font-bold">Hours</span>
                 </div>
-                <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-lg sm:text-xl font-bold font-mono text-white block">{timeLeft.minutes}</span>
-                  <span className="text-[9px] uppercase tracking-wider opacity-60">Mins</span>
+                <div className="p-2 rounded-xl theme-countdown-box">
+                  <span className="text-lg sm:text-xl font-bold font-mono theme-countdown-num block">{timeLeft.minutes}</span>
+                  <span className="text-[9px] uppercase tracking-wider theme-countdown-label font-bold">Mins</span>
                 </div>
-                <div className="p-2 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-lg sm:text-xl font-bold font-mono text-white block">{timeLeft.seconds}</span>
-                  <span className="text-[9px] uppercase tracking-wider opacity-60">Secs</span>
+                <div className="p-2 rounded-xl theme-countdown-box">
+                  <span className="text-lg sm:text-xl font-bold font-mono theme-countdown-num block">{timeLeft.seconds}</span>
+                  <span className="text-[9px] uppercase tracking-wider theme-countdown-label font-bold">Secs</span>
                 </div>
               </div>
             </div>
 
-            {/* DOMINANT PRIMARY CTA BUTTON (§4) */}
+            {/* DOMINANT PRIMARY CTA BUTTON */}
             <button
               onClick={handlePrimaryCta}
-              className="w-full py-4 px-6 rounded-2xl font-black text-base sm:text-lg text-neutral-950 shadow-2xl transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 group relative overflow-hidden"
+              className="w-full py-4 px-6 rounded-2xl font-black text-base sm:text-lg shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 group relative overflow-hidden"
               style={{
-                backgroundColor: accentColor || '#fafafa',
-                color: '#09090b',
-                boxShadow: `0 10px 30px ${accentColor || '#fafafa'}55`
+                backgroundColor: accentColor,
+                color: ctaTextColor,
+                boxShadow: `0 10px 30px ${accentColor}40`
               }}
             >
-              <div className="absolute inset-0 bg-black/10 shimmer-badge pointer-events-none" />
-              <Rocket className="w-5 h-5 text-neutral-950" />
-              <span className="text-neutral-950 font-black">{event.primaryCtaText || 'Register Now'}</span>
-              <ChevronRight className="w-5 h-5 text-neutral-950 group-hover:translate-x-1 transition-transform" />
+              <div className="absolute inset-0 bg-white/15 shimmer-badge pointer-events-none" />
+              <Rocket className="w-5 h-5 flex-shrink-0" style={{ color: ctaTextColor }} />
+              <span className="font-black" style={{ color: ctaTextColor }}>{event.primaryCtaText || 'Register Now'}</span>
+              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform flex-shrink-0" style={{ color: ctaTextColor }} />
             </button>
           </div>
         </section>
 
         {/* 1. LATEST ANNOUNCEMENT BANNER */}
         {activeAnnouncement && (
-          <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-200 backdrop-blur-md flex items-start gap-3 shadow-lg">
-            <Megaphone className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
+          <div className="p-4 rounded-2xl theme-announcement backdrop-blur-md flex items-start gap-3 shadow-lg">
+            <Megaphone className="w-5 h-5 flex-shrink-0 mt-0.5 animate-pulse text-current opacity-90" />
             <div className="flex-1 text-xs space-y-1">
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-amber-100">{activeAnnouncement.title}</h4>
-                <span className="text-[10px] opacity-70 font-mono">{activeAnnouncement.date}</span>
+                <h4 className="font-bold theme-announcement-title text-sm">{activeAnnouncement.title}</h4>
+                <span className="text-[10px] opacity-75 font-mono">{activeAnnouncement.date}</span>
               </div>
-              <p className="opacity-90">{activeAnnouncement.description}</p>
+              <p className="opacity-90 leading-relaxed">{activeAnnouncement.description}</p>
               {activeAnnouncement.url && (
                 <a
                   href={activeAnnouncement.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-bold underline hover:text-amber-100 mt-1"
+                  className="inline-flex items-center gap-1 font-bold underline hover:opacity-100 mt-1"
                 >
                   Learn more <ExternalLink className="w-3 h-3" />
                 </a>
@@ -722,7 +729,6 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
           const displayLinks = rawLinks
             .filter((l: EventLink) => l.visible)
             .reduce((acc: EventLink[], current: EventLink) => {
-              // Preserve all links the user created, only guard against exact duplicate IDs
               if (!acc.some(l => l.id === current.id)) {
                 acc.push(current);
               }
@@ -735,71 +741,50 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
           return (
             <section className="space-y-3">
               <div className="flex items-center justify-between px-1">
-                <h3 className="text-xs font-bold uppercase tracking-wider opacity-70">
+                <h3 className="text-xs font-bold uppercase tracking-wider theme-section-title">
                   Event Resources & Links ({displayLinks.length})
                 </h3>
-                <span className="text-[10px] opacity-50 font-mono">Tap to open</span>
+                <span className="text-[10px] opacity-60 font-mono theme-section-title">Tap to open</span>
               </div>
 
               <div className="space-y-3">
-                {displayLinks.map((link: EventLink, index: number) => {
+                {displayLinks.map((link: EventLink) => {
                   const isFeatured = link.featured;
-                  const isPopBrutalist = event.themeId === 'popbrutalist';
-                  const popBgColors = ['#ff6b6b', '#4ecdc4', '#c77dff', '#ff9f1c', '#2ec4b6', '#ffd166'];
-                  const cardBg = isPopBrutalist ? popBgColors[index % popBgColors.length] : undefined;
-
                   return (
                     <div
                       key={link.id}
                       onClick={() => handleLinkClick(link)}
-                      className={`theme-card group cursor-pointer p-4 transition-all duration-200 flex items-center justify-between gap-4 ${
-                        isPopBrutalist
-                          ? 'rounded-2xl border-4 border-black text-black font-extrabold shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
-                          : isFeatured
-                          ? 'rounded-2xl ring-2 ring-white/30 shadow-lg scale-[1.01]'
-                          : 'rounded-2xl'
+                      className={`theme-card group cursor-pointer p-4 transition-all duration-200 flex items-center justify-between gap-4 rounded-2xl ${
+                        isFeatured ? 'ring-2 ring-current/25 shadow-lg scale-[1.01]' : ''
                       }`}
-                      style={isPopBrutalist ? { backgroundColor: cardBg, color: '#000000' } : undefined}
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
                         {/* Icon Container */}
-                        <div
-                          className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${
-                            isPopBrutalist
-                              ? 'bg-black text-white shadow-md'
-                              : isFeatured
-                              ? 'bg-zinc-100 text-neutral-950 shadow-md'
-                              : 'bg-white/10 text-white border border-white/10'
-                          }`}
-                        >
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105 theme-icon-container">
                           <DynamicIcon name={link.icon} className="w-5.5 h-5.5" />
                         </div>
 
                         {/* Text & Desc */}
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <h4 className={`text-sm sm:text-base font-extrabold truncate ${isPopBrutalist ? 'text-black' : 'group-hover:text-zinc-200'} transition-colors`}>
+                            <h4 className="text-sm sm:text-base font-extrabold truncate theme-link-title transition-colors">
                               {link.title}
                             </h4>
                             {isFeatured && (
-                              <span className={`px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest rounded-full ${
-                                isPopBrutalist
-                                  ? 'bg-black text-white border border-black'
-                                  : 'bg-amber-400/20 text-amber-300 border border-amber-400/40'
-                              }`}>
+                              <span className="px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-widest rounded-full theme-featured-badge">
                                 Featured
                               </span>
                             )}
                           </div>
                           {link.description && (
-                            <p className={`text-xs truncate mt-0.5 ${isPopBrutalist ? 'text-black/80 font-bold' : 'opacity-75'}`}>
+                            <p className="text-xs truncate mt-0.5 theme-link-desc">
                               {link.description}
                             </p>
                           )}
                         </div>
                       </div>
 
-                      <ChevronRight className={`w-5 h-5 ${isPopBrutalist ? 'text-black font-black opacity-100' : 'opacity-40'} group-hover:opacity-100 group-hover:translate-x-1 transition-all flex-shrink-0`} />
+                      <ChevronRight className="w-5 h-5 theme-chevron group-hover:translate-x-1 transition-all flex-shrink-0" />
                     </div>
                   );
                 })}
@@ -812,7 +797,7 @@ export const PublicEventPage: React.FC<{ isPreview?: boolean; customEvent?: any 
         <footer className="pt-6 pb-2 text-center">
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono text-slate-400 hover:text-slate-200 transition-all"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full theme-footer-link text-[11px] font-mono transition-all"
           >
             <Rocket className="w-3 h-3 text-indigo-400" />
             <span>Made with <strong>CampusLink</strong></span>

@@ -33,7 +33,7 @@ export const AppearanceTab: React.FC = () => {
       if (stored) {
         loaded = JSON.parse(stored);
       }
-      if (activeEvent?.customThemeConfig && !loaded.some(t => t.id === activeEvent.customThemeConfig!.id)) {
+      if (activeEvent?.customThemeConfig && (!activeEvent.userId || activeEvent.userId === user?.id) && !loaded.some(t => t.id === activeEvent.customThemeConfig!.id)) {
         loaded = [activeEvent.customThemeConfig, ...loaded];
       }
       setCustomThemes(loaded);

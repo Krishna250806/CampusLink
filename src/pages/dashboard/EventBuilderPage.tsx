@@ -44,6 +44,7 @@ export const EventBuilderPage: React.FC = () => {
   const { activeEvent, events, createEvent, updateEvent, activeCommittee, user } = useCampusLink();
 
   const customThemesKey = `campuslink_custom_themes_${user?.id || 'guest'}`;
+  const liveDraftKey = `campuslink_builder_live_draft_${user?.id || 'guest'}`;
 
   const safeCommittee = activeCommittee || DEFAULT_FALLBACK_COMMITTEE;
   const safeActiveEvent = activeEvent || DEFAULT_FALLBACK_EVENT;
@@ -52,10 +53,14 @@ export const EventBuilderPage: React.FC = () => {
   const getSavedLiveDraft = (): Partial<Event> | null => {
     if (typeof window === 'undefined') return null;
     try {
-      const saved = localStorage.getItem('campuslink_builder_live_draft');
+      const saved = localStorage.getItem(liveDraftKey) || localStorage.getItem('campuslink_builder_live_draft');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') return parsed;
+        if (parsed && typeof parsed === 'object') {
+          // If draft belongs to another user, strictly ignore to prevent cross-account leakage
+          if (parsed.userId && user?.id && parsed.userId !== user.id) return null;
+          return parsed;
+        }
       }
     } catch {}
     return null;
@@ -72,7 +77,7 @@ export const EventBuilderPage: React.FC = () => {
     ? (liveDraftSaved.links as EventLink[])
     : (targetEvent?.links && targetEvent.links.length > 0)
     ? targetEvent.links
-    : (events.find(e => Array.isArray(e.links) && e.links.length > 0)?.links || []);
+    : [];
 
   const initialEvent: Partial<Event> = (isEditing && targetEvent)
     ? {
@@ -134,7 +139,7 @@ export const EventBuilderPage: React.FC = () => {
       if (stored) {
         list = JSON.parse(stored);
       }
-      if (draft?.customThemeConfig && !list.some(t => t.id === draft.customThemeConfig!.id)) {
+      if (draft?.customThemeConfig && (!draft.userId || draft.userId === user?.id) && !list.some(t => t.id === draft.customThemeConfig!.id)) {
         list = [draft.customThemeConfig, ...list];
       }
       setCustomThemes(list);
@@ -198,6 +203,7 @@ export const EventBuilderPage: React.FC = () => {
     // 2. Debounced persistent storage & context update
     const timer = setTimeout(() => {
       try {
+        localStorage.setItem(liveDraftKey, JSON.stringify(fullDraft));
         localStorage.setItem('campuslink_builder_live_draft', JSON.stringify(fullDraft));
         window.dispatchEvent(new Event('storage'));
 
@@ -238,6 +244,7 @@ export const EventBuilderPage: React.FC = () => {
         committeeLogoUrl: safeCommittee.logoUrl,
         committeeId: safeCommittee.id
       };
+      localStorage.setItem(liveDraftKey, JSON.stringify(fullDraft));
       localStorage.setItem('campuslink_builder_live_draft', JSON.stringify(fullDraft));
       window.dispatchEvent(new Event('storage'));
 
@@ -364,6 +371,7 @@ export const EventBuilderPage: React.FC = () => {
         toast.success("Event published live to CampusLink!");
       }
       try {
+        localStorage.removeItem(liveDraftKey);
         localStorage.removeItem('campuslink_builder_live_draft');
       } catch {}
       confetti({ particleCount: 120, spread: 90, origin: { y: 0.5 } });
@@ -378,6 +386,7 @@ export const EventBuilderPage: React.FC = () => {
 
   const handleResetDraft = () => {
     try {
+      localStorage.removeItem(liveDraftKey);
       localStorage.removeItem('campuslink_builder_live_draft');
     } catch {}
     setDraft({

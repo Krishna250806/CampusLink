@@ -268,28 +268,14 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           if (userSaved) {
             const parsed = JSON.parse(userSaved);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              result = parsed;
+              result = parsed.filter(c => c.userId === currentUserId || c.id === `comm_${currentUserId}`);
             }
           }
-        }
-        if (result.length === 0) {
-          const guestSaved = localStorage.getItem(getUserCommitteesKey('usr_guest'));
+        } else {
+          // Only unauthenticated / guest sessions check guest cache
+          const guestSaved = localStorage.getItem(getUserCommitteesKey('usr_guest')) || localStorage.getItem(getUserCommitteesKey('default'));
           if (guestSaved) {
             const parsed = JSON.parse(guestSaved);
-            if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
-          }
-        }
-        if (result.length === 0) {
-          const defaultSaved = localStorage.getItem(getUserCommitteesKey('default'));
-          if (defaultSaved) {
-            const parsed = JSON.parse(defaultSaved);
-            if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
-          }
-        }
-        if (result.length === 0) {
-          const globalSaved = localStorage.getItem(STORAGE_KEY_GLOBAL_COMMITTEES);
-          if (globalSaved) {
-            const parsed = JSON.parse(globalSaved);
             if (Array.isArray(parsed) && parsed.length > 0) result = parsed;
           }
         }
@@ -413,19 +399,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            existingLocalComm = parsed.find((c: Committee) => c.userId === userId || c.id === userCommId) || parsed[0];
-          }
-        }
-        if (!existingLocalComm) {
-          const guestSaved = localStorage.getItem(getUserCommitteesKey('usr_guest')) || localStorage.getItem(getUserCommitteesKey('default'));
-          if (guestSaved) {
-            const parsed = JSON.parse(guestSaved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const candidate = parsed[0];
-              if (candidate && candidate.name && candidate.name !== 'My Student Committee') {
-                existingLocalComm = candidate;
-              }
-            }
+            existingLocalComm = parsed.find((c: Committee) => c.userId === userId || c.id === userCommId) || null;
           }
         }
       } catch {}
@@ -433,7 +407,7 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (commData) {
         // If local has more recent non-default name/logo while Supabase is default, prefer local and sync to Supabase
         const isDbDefault = commData.name && commData.name.includes("'s Organization") && !commData.logo_url;
-        const isLocalCustom = existingLocalComm && existingLocalComm.name && !existingLocalComm.name.includes("'s Organization");
+        const isLocalCustom = existingLocalComm && existingLocalComm.userId === userId && existingLocalComm.name && !existingLocalComm.name.includes("'s Organization");
 
         const effectiveCommData = (isDbDefault && isLocalCustom && existingLocalComm) ? {
           ...commData,
@@ -489,9 +463,9 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           return [userComm, ...clean];
         });
       } else {
-        // Create fresh committee: check if user had saved one locally first!
+        // Create fresh committee: strictly scoped to this user!
         const cleanHandle = (userEmail.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() || `org-${userId.slice(0, 5)}`);
-        const newComm: Committee = existingLocalComm ? {
+        const newComm: Committee = (existingLocalComm && existingLocalComm.userId === userId) ? {
           ...existingLocalComm,
           id: existingLocalComm.id || userCommId,
           userId: userId
@@ -599,6 +573,12 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       } else if (_event === 'SIGNED_OUT') {
         setUser(null);
         setActiveEventIdState('');
+        setCommittees([DEFAULT_FALLBACK_COMMITTEE]);
+        setEvents([DEFAULT_FALLBACK_EVENT]);
+        try {
+          localStorage.removeItem(STORAGE_KEY_USER);
+          localStorage.removeItem('campuslink_builder_live_draft');
+        } catch {}
       }
     });
 
@@ -687,31 +667,25 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Derived User-Scoped Workspace Data (STRICT ACCOUNT ISOLATION)
   const userCommittees = user
     ? committees.filter(c => c.userId === user.id || c.id === user.committeeId)
-    : committees.filter(c => c.id !== 'comm_main' || committees.length === 1);
-
-  const fallbackCommittee = committees.find(c => c.id !== 'comm_main') || committees[0] || DEFAULT_FALLBACK_COMMITTEE;
+    : [];
 
   const defaultUserCommittee: Committee = user ? {
-    id: user.committeeId || fallbackCommittee.id || `comm_${user.id}`,
+    id: user.committeeId || `comm_${user.id}`,
     userId: user.id,
-    handle: (fallbackCommittee.handle && fallbackCommittee.handle !== 'my-org')
-      ? fallbackCommittee.handle
-      : ((user.email ? user.email.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() : 'my-org') || 'my-org'),
-    name: (fallbackCommittee.name && fallbackCommittee.name !== 'My Student Committee')
-      ? fallbackCommittee.name
-      : (user.name ? `${user.name}'s Organization` : 'My Organization'),
-    tagline: fallbackCommittee.tagline || 'Student organization page',
-    logoUrl: fallbackCommittee.logoUrl || '',
-    coverUrl: fallbackCommittee.coverUrl || fallbackCommittee.socials?.coverUrl || '',
-    description: fallbackCommittee.description || '',
-    socials: fallbackCommittee.socials || { website: '' },
-    members: fallbackCommittee.members || [],
+    handle: (user.email ? user.email.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase() : 'my-org') || 'my-org',
+    name: user.name ? `${user.name}'s Organization` : 'My Organization',
+    tagline: 'Student organization page',
+    logoUrl: '',
+    coverUrl: '',
+    description: '',
+    socials: { website: '', coverUrl: '' },
+    members: [],
     verified: false
-  } : fallbackCommittee;
+  } : DEFAULT_FALLBACK_COMMITTEE;
 
   const activeCommittee = user
-    ? ((userCommittees.length > 0 ? (userCommittees.find(c => c.id === user.committeeId || c.userId === user.id) || userCommittees[0]) : null) || defaultUserCommittee)
-    : (userCommittees[0] || defaultUserCommittee);
+    ? (userCommittees.find(c => c.id === user.committeeId || c.userId === user.id) || userCommittees[0] || defaultUserCommittee)
+    : (committees.find(c => c.id !== 'comm_main') || committees[0] || DEFAULT_FALLBACK_COMMITTEE);
 
   const userEvents = user
     ? events.filter(e => e.userId === user.id || (e.committeeId && e.committeeId === user.committeeId))
@@ -1459,17 +1433,21 @@ export const CampusLinkProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // Update live builder draft in localStorage
     try {
-      const liveDraftStr = localStorage.getItem('campuslink_builder_live_draft');
+      const userDraftKey = `campuslink_builder_live_draft_${commUserId}`;
+      const liveDraftStr = localStorage.getItem(userDraftKey) || localStorage.getItem('campuslink_builder_live_draft');
       if (liveDraftStr) {
         const liveDraft = JSON.parse(liveDraftStr);
         if (liveDraft && typeof liveDraft === 'object') {
-          if (partial.logoUrl) liveDraft.committeeLogoUrl = partial.logoUrl;
-          if (partial.name) liveDraft.committeeName = partial.name;
-          if (partial.handle) liveDraft.committeeHandle = updatedTargetComm.handle;
-          if (liveDraft.committee) {
-            liveDraft.committee = { ...liveDraft.committee, ...updatedTargetComm };
+          if (!liveDraft.userId || liveDraft.userId === commUserId) {
+            if (partial.logoUrl) liveDraft.committeeLogoUrl = partial.logoUrl;
+            if (partial.name) liveDraft.committeeName = partial.name;
+            if (partial.handle) liveDraft.committeeHandle = updatedTargetComm.handle;
+            if (liveDraft.committee) {
+              liveDraft.committee = { ...liveDraft.committee, ...updatedTargetComm };
+            }
+            localStorage.setItem(userDraftKey, JSON.stringify(liveDraft));
+            localStorage.setItem('campuslink_builder_live_draft', JSON.stringify(liveDraft));
           }
-          localStorage.setItem('campuslink_builder_live_draft', JSON.stringify(liveDraft));
         }
       }
     } catch {}

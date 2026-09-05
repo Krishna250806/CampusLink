@@ -42,11 +42,13 @@ export const QrModal: React.FC<QrModalProps> = ({
   if (!event.links || event.links.length === 0) {
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem('campuslink_builder_live_draft');
+        const saved = localStorage.getItem(`campuslink_builder_live_draft_${event.userId || 'guest'}`) || localStorage.getItem('campuslink_builder_live_draft');
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed?.links) && parsed.links.length > 0) {
-            event = { ...event, links: parsed.links };
+            if (!parsed.userId || parsed.userId === event.userId) {
+              event = { ...event, links: parsed.links };
+            }
           }
         }
       } catch {}
@@ -57,7 +59,7 @@ export const QrModal: React.FC<QrModalProps> = ({
   if (!event.customThemeConfig && (event.themeId === 'custom' || event.themeId?.startsWith('custom_') || event.themeId?.startsWith('custom'))) {
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem('campuslink_custom_themes');
+        const stored = localStorage.getItem(`campuslink_custom_themes_${event.userId || 'guest'}`) || localStorage.getItem('campuslink_custom_themes');
         if (stored) {
           const list = JSON.parse(stored);
           const found = Array.isArray(list) ? list.find((t: any) => t.id === event.themeId) : null;
